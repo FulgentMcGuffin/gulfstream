@@ -1,0 +1,50 @@
+# Graph 1 core path using OPTICS distances-to-centroids as dimred.
+algo:
+  dimred: [optics]
+  optics_min_samples: [10]
+  optics_xi: [0.05]
+  recursive_method: [full]
+  depth: [2]
+  feature_map_approx_method: [rff]
+  feature_map_kernel_params:
+    - kernel: rbf
+      gamma_method: median
+  num_features: [30]
+  num_mappings: [1]
+  ruptures_kernel_params:
+    - kernel: rbf
+      gamma_method: median
+  post_processing_method: [majority_voting]
+  min_regime_length: [20]
+  include_last_regime: [true]
+
+test:
+  choice: [mmd_no_ts]
+  lag:
+    - method: user_specified
+      lag: 5
+  window:
+    - method: user_specified
+      window: 40
+  sample_size:
+    - method: user_specified
+      num_samples: 40
+  significance_level: [0.05]
+
+metrics:
+  mode: write
+  dir: ${IMG_DIR}
+  plot: false
+  explainability_features: ["__auto__"]
+  features_to_plot: ["__auto__"]
+  regime_cluster_algorithms: [kmeans, hdbscan, optics]
+
+log:
+  dir: ${LOG_DIR}
+  level: INFO
+
+robustness:
+  enabled: false
+
+stability:
+  enabled: false

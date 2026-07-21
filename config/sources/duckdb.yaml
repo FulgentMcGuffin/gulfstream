@@ -1,0 +1,10 @@
+type: duckdb
+db_path: "D:/data/duckdb/ycs_data.duckdb"
+rate_table: zero_rates
+sources: [USA, DEU, ITA]
+tenors: [Y002p0, Y005p0, Y010p0, Y030p0]
+fx_pairs: [EURUSD, GBPUSD]
+fx_table: spotfx
+start_date: "2015-01-01"
+end_date: "2024-12-31"
+generate_features: true

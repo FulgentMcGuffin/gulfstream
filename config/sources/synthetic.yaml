@@ -1,0 +1,7 @@
+type: synthetic
+case: jump
+regimes: 3
+features: 4
+durations: uniform
+regime_params: random
+seed: 42

@@ -1,0 +1,64 @@
+algo:
+  dimred: [pca]
+  rank_selection_method: [explained_variance]
+  threshold: [0.9]
+  recursive_method: [full]
+  depth: [2]
+  feature_map_approx_method: [rff]
+  feature_map_kernel_params:
+    - kernel: rbf
+      gamma_method: median
+  num_features: [50]
+  num_mappings: [1]
+  ruptures_kernel_params:
+    - kernel: rbf
+      gamma_method: median
+  post_processing_method: [majority_voting]
+  min_regime_length: [20]
+  include_last_regime: [true]
+
+test:
+  choice: [mmd_no_ts]
+  lag:
+    - method: user_specified
+      lag: 5
+  window:
+    - method: user_specified
+      window: 40
+  sample_size:
+    - method: user_specified
+      num_samples: 40
+  significance_level: [0.05]
+
+metrics:
+  mode: write
+  dir: ${IMG_DIR}
+  plot: true
+  num_samples: 100
+  num_features: 5
+  num_components: 3
+  num_shap: 5
+  num_top_features_for_distances: 5
+  requested_features_for_distances: []
+  explainability_features: ["__auto__"]
+  features_to_plot: ["__auto__"]
+  warn_threshold: 0.5
+  exp_tree_accuracy: [0.9]
+  exp_tree_bps_decimals: false
+  developer_mode: false
+
+log:
+  dir: ${LOG_DIR}
+  level: INFO
+
+robustness:
+  enabled: false
+
+stability:
+  enabled: false
+
+retrain:
+  interactive: true
+  features: ["__auto__"]
+  num_worst_features: 5
+  regimes_df: null

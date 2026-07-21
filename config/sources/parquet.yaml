@@ -1,0 +1,7 @@
+type: parquet
+path: data/synthetic/faker_yields.parquet
+create_if_missing: true
+create_kind: faker_yields
+seed: 42
+n_days: 500
+generate_features: true

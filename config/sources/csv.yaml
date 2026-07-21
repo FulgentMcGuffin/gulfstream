@@ -1,0 +1,10 @@
+type: csv
+path: data/synthetic/sample_rates.csv
+date_column: date
+# Optional column subset; omit to use all non-date columns.
+# columns: [USA_Y010p0, DEU_Y010p0, EURUSD]
+start_date: null
+end_date: null
+generate_features: true
+sep: ","
+encoding: utf-8
