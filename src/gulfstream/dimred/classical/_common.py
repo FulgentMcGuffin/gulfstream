@@ -108,6 +108,7 @@ def _slice_user_specified(res: DimredResults, params: dict):
             rank_selection_method="user_specified",
             eigvals=res.eigvals,
             kernel_params=res.kernel_params,
+            fpca_smooth_window=res.fpca_smooth_window,
             model=res.model,
         )
         yield sliced
@@ -139,6 +140,7 @@ def _slice_threshold(res: DimredResults, params: dict):
             threshold=thr,
             eigvals=eigvals,
             kernel_params=res.kernel_params,
+            fpca_smooth_window=res.fpca_smooth_window,
             model=res.model,
         )
 

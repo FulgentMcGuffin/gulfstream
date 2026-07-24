@@ -40,6 +40,8 @@ def plot_market_regimes(
     low_confidence_bkpts: list[int] | None = None,
     bkpt_hierarchy: dict | None = None,
     bkpt_ranks: dict | None = None,
+    bkpt_ci: dict[int, tuple[int, int]] | None = None,
+    plot_ci_ribbons: bool = True,
     mode: Literal["display", "write", "display_and_write"] = "display",
     img_dir: str | None = None,
     name: str = "regime_plot",
@@ -48,6 +50,7 @@ def plot_market_regimes(
     valid_bkpts = valid_bkpts or []
     low_confidence_bkpts = low_confidence_bkpts or []
     bkpt_hierarchy = bkpt_hierarchy or {}
+    bkpt_ci = bkpt_ci or {}
 
     feat_cols = frames.feature_columns(df)
     if variables:
@@ -95,6 +98,39 @@ def plot_market_regimes(
                 aes(xmin="xmin", xmax="xmax", ymin="ymin", ymax="ymax", fill="Regime"),
                 alpha=0.25,
                 inherit_aes=False,
+            )
+
+    # Uncertainty CI ribbons (index bands around confirmed breakpoints).
+    if plot_ci_ribbons and bkpt_ci:
+        ci_rows = []
+        n = len(dates)
+        for b, band in bkpt_ci.items():
+            try:
+                lo, hi = int(band[0]), int(band[1])
+            except (TypeError, ValueError, IndexError):
+                continue
+            lo = max(0, min(lo, n - 1))
+            hi = max(0, min(hi, n - 1))
+            if hi < lo:
+                lo, hi = hi, lo
+            ci_rows.append(
+                {
+                    "xmin": float(lo),
+                    "xmax": float(max(lo + 1e-6, hi)),
+                    "ymin": -np.inf,
+                    "ymax": np.inf,
+                    "bkpt": int(b),
+                }
+            )
+        if ci_rows:
+            ci_df = pd.DataFrame(ci_rows)
+            plot = plot + geom_rect(
+                ci_df,
+                aes(xmin="xmin", xmax="xmax", ymin="ymin", ymax="ymax"),
+                fill="#4C78A8",
+                alpha=0.22,
+                inherit_aes=False,
+                show_legend=False,
             )
 
     plot = plot + geom_line(color="black", size=0.4)
@@ -180,6 +216,7 @@ def produce_all_regime_visualization_tools(
         features = feat_cols[: min(3, len(feat_cols))]
     mode = params.get("metrics", {}).get("mode", "display")
     img_dir = params.get("metrics", {}).get("image_dir") or params.get("metrics", {}).get("dir")
+    plot_ci = bool(params.get("metrics", {}).get("plot_ci_ribbons", True))
     plot_market_regimes(
         df,
         regimes_df,
@@ -189,6 +226,8 @@ def produce_all_regime_visualization_tools(
         valid_bkpts=res.bkpts,
         low_confidence_bkpts=list(res.low_confidence_bkpts or []),
         bkpt_hierarchy={b: hierarchy.get(b, 1) for b in res.bkpts},
+        bkpt_ci=dict(res.bkpt_ci or {}),
+        plot_ci_ribbons=plot_ci,
         mode=mode,
         img_dir=img_dir,
     )

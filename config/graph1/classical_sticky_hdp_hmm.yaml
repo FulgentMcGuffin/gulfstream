@@ -1,0 +1,26 @@
+algo:
+  detection_backend: [classical]
+  dimred: [raw]
+  feature_map_approx_method: [raw]
+  regime_detection_algorithm: [sticky_hdp_hmm]
+  regimes: [6]
+  hdp_max_states: [6]
+  sticky_kappa: [10.0]
+  hdp_alpha: [1.0]
+  hdp_gamma: [1.0]
+  hmm_n_iter: [50]
+  random_state: [42]
+  post_processing_method: [majority_voting]
+  min_regime_length: [20]
+  include_last_regime: [true]
+
+metrics:
+  mode: write
+  dir: ${IMG_DIR}
+  plot: true
+  explainability_features: ["__auto__"]
+  features_to_plot: ["__auto__"]
+
+log:
+  dir: ${LOG_DIR}
+  level: INFO

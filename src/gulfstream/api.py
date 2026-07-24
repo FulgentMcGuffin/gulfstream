@@ -18,7 +18,13 @@ from gulfstream.metrics.regime_plots import plot_market_regimes
 from gulfstream.pipelines.graph1 import run_graph1
 from gulfstream.pipelines.graph2 import run_graph2, seed_regimes_from_results
 from gulfstream.pipelines.hamilton.driver import load_features as _load_features
+from gulfstream.pipelines.panel import run_panel_joint_segmentation
 from gulfstream.pipelines.single_pass import run_single_segmentation
+from gulfstream.pipelines.streaming import (
+    IncrementalState,
+    advance_incremental,
+    run_streaming_graph1,
+)
 
 
 def load_features(
@@ -38,12 +44,37 @@ def detect_regimes(
     """Run Graph 1 and return a segmentation result.
 
     Uses ``algo.detection_backend`` (``kernel_ruptures`` or ``classical``).
-    Side-effecting artifact writes still follow ``metrics.mode`` / ``metrics.dir``.
-    For a pure in-memory single pass without the grid driver, prefer
-    :func:`run_single_segmentation`.
+    When ``streaming.enabled`` or ``panel.enabled`` is set in config, routes to
+    the corresponding product path. Side-effecting artifact writes still follow
+    ``metrics.mode`` / ``metrics.dir``.
     """
     params = coerce_params(config)
     return run_graph1(df, params)
+
+
+def detect_regimes_incremental(
+    df: pl.DataFrame,
+    config: Config | dict[str, Any],
+    state: IncrementalState | None = None,
+) -> tuple[SegmentResults, IncrementalState]:
+    """Advance streaming Graph 1 by one step (or start a new stream).
+
+    For a full expanding/rolling pass to the series end, prefer
+    :func:`detect_regimes` with ``streaming.enabled: true``.
+    """
+    params = coerce_params(config)
+    params.setdefault("streaming", {})["enabled"] = True
+    return advance_incremental(df, params, state)
+
+
+def detect_regimes_panel(
+    df: pl.DataFrame,
+    config: Config | dict[str, Any],
+) -> SegmentResults:
+    """Joint breakpoints across panel groups (``panel.enabled``)."""
+    params = coerce_params(config)
+    params.setdefault("panel", {})["enabled"] = True
+    return run_panel_joint_segmentation(df, params)
 
 
 def refine_regimes(
@@ -85,6 +116,8 @@ def plot_regimes(
         valid_bkpts=results.bkpts,
         invalid_bkpts=results.invalid_bkpts,
         low_confidence_bkpts=list(results.low_confidence_bkpts or []),
+        bkpt_ci=dict(results.bkpt_ci or {}),
+        plot_ci_ribbons=True,
         mode=mode,
         img_dir=img_dir,
     )
@@ -102,10 +135,15 @@ def regime_intervals(
 __all__ = [
     "load_features",
     "detect_regimes",
+    "detect_regimes_incremental",
+    "detect_regimes_panel",
     "refine_regimes",
     "plot_regimes",
     "regime_intervals",
     "run_single_segmentation",
+    "run_streaming_graph1",
+    "advance_incremental",
+    "IncrementalState",
     "seed_regimes_from_results",
     "Config",
     "SegmentResults",

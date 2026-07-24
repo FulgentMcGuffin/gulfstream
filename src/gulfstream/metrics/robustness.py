@@ -65,6 +65,8 @@ def annotate_persistence(
         persistence=dict(scores),
         low_confidence_bkpts=low,
         stability_score=baseline.stability_score,
+        bkpt_ci=dict(baseline.bkpt_ci or {}),
+        panel_support=dict(baseline.panel_support or {}),
     )
 
 

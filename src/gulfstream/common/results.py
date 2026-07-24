@@ -30,6 +30,10 @@ class SegmentResults:
     persistence: dict[int, float] = field(default_factory=dict)
     low_confidence_bkpts: list[int] = field(default_factory=list)
     stability_score: float | None = None
+    # Product: calibrated index bands ``bkpt -> (lo, hi)``
+    bkpt_ci: dict[int, tuple[int, int]] = field(default_factory=dict)
+    # Product: fraction of panel groups supporting each consensus break
+    panel_support: dict[int, float] = field(default_factory=dict)
 
 
 @dataclass
@@ -50,6 +54,10 @@ class DimredResults:
     umap_num_neighbors: float | None = None
     umap_min_dist: float | None = None
     umap_metric: str | None = None
+    ica_max_iter: int | None = None
+    ns_lambda: float | None = None
+    factor_order: int | None = None
+    fpca_smooth_window: int | None = None
     model: Any = None
 
 

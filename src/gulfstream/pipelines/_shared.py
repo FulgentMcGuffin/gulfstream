@@ -16,6 +16,7 @@ from gulfstream.metrics import regime_plots as regime_visualization_tools
 from gulfstream.metrics import robustness
 from gulfstream.metrics import stability
 from gulfstream.metrics import transitions as transition_matrices
+from gulfstream.metrics import uncertainty
 from gulfstream.metrics import writers as results_writers
 
 logger = logging.getLogger(__name__)
@@ -63,16 +64,40 @@ def _initialize_test_sub_dir(params: dict, file_dir: str | None) -> str | None:
     return None
 
 
-def produce_all_metrics(df: pl.DataFrame, res: SegmentResults, params: dict) -> None:
-    if not params["metrics"].get("plot"):
-        return
+def write_exports_and_events(
+    df: pl.DataFrame,
+    res: SegmentResults,
+    params: dict,
+) -> SegmentResults:
+    """Optional Excel export + NDJSON event stream (``export`` / ``events`` YAML)."""
+    from gulfstream.ops import events as event_stream
+
+    default_dir = (
+        (params.get("metrics") or {}).get("image_dir")
+        or (params.get("metrics") or {}).get("dir")
+    )
+    dates = frames.dates_series(df).to_list() if df.height else None
+    results_writers.export_breakpoint_excel(
+        res, params, default_dir=default_dir, dates=dates
+    )
+    event_stream.emit_run_events(params, res, default_dir=default_dir)
+    return res
+
+
+def produce_all_metrics(df: pl.DataFrame, res: SegmentResults, params: dict) -> SegmentResults:
+    # Enrich results even when plot=false so export/events see bkpt_ci etc.
     res = robustness.evaluate_robustness(df, params, res)
     res = stability.evaluate_stability(df, params, res)
+    res = uncertainty.evaluate_uncertainty(df, params, res)
 
-    regime_visualization_tools.produce_all_regime_visualization_tools(df, params, res)
-    post_information_visualization.produce_all_post_information_visualization_tools(
-        df, params, res
-    )
-    bkpt_trees.build_and_plot_bkpt_trees(df, params, res, unproc_res=None)
-    explainability_tools.produce_all_explainability_tools(df, params, res)
-    transition_matrices.produce_transition_matrices(df, params)
+    if params["metrics"].get("plot"):
+        regime_visualization_tools.produce_all_regime_visualization_tools(df, params, res)
+        post_information_visualization.produce_all_post_information_visualization_tools(
+            df, params, res
+        )
+        bkpt_trees.build_and_plot_bkpt_trees(df, params, res, unproc_res=None)
+        explainability_tools.produce_all_explainability_tools(df, params, res)
+        transition_matrices.produce_transition_matrices(df, params)
+
+    write_exports_and_events(df, res, params)
+    return res

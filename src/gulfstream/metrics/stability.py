@@ -186,6 +186,8 @@ def evaluate_stability(
         persistence=dict(baseline.persistence or {}),
         low_confidence_bkpts=list(baseline.low_confidence_bkpts or []),
         stability_score=score,
+        bkpt_ci=dict(baseline.bkpt_ci or {}),
+        panel_support=dict(baseline.panel_support or {}),
     )
     if score < floor:
         logger.warning(

@@ -211,6 +211,9 @@ def classical_process_cases(
             case_params["test_num"] = test_num
             case_params["robustness"] = params.get("robustness") or {}
             case_params["stability"] = params.get("stability") or {}
+            case_params["uncertainty"] = params.get("uncertainty") or {}
+            case_params["export"] = params.get("export") or {}
+            case_params["events"] = params.get("events") or {}
             case_params["_pipeline_params"] = params
             try:
                 from gulfstream.pipelines._shared import produce_all_metrics

@@ -5,6 +5,7 @@ description = "Regime detection pipelines (Graph 1 / Graph 2 / legacy)"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "arch>=8.0.0",
     "duckdb>=1.2.0",
     "faiss-cpu",
     "faker",

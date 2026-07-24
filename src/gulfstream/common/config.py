@@ -82,6 +82,18 @@ class AlgoConfig(BaseModel):
     umap_num_neighbors: list[float] = Field(default_factory=list)
     umap_min_dist: list[float] = Field(default_factory=list)
     umap_metric: list[str] = Field(default_factory=list)
+    random_state: list[int] = Field(default_factory=list)
+    ica_max_iter: list[int] = Field(default_factory=list)
+    ns_lambda: list[float] = Field(default_factory=list)
+    ns_maturities: list[float] = Field(default_factory=list)
+    factor_order: list[int] = Field(default_factory=list)
+    df_maxiter: list[int] = Field(default_factory=list)
+    fpca_smooth_window: list[int] = Field(default_factory=list)
+    wbs_n_intervals: list[int] = Field(default_factory=list)
+    wbs_threshold: list[float | None] = Field(default_factory=list)
+    bocpd_hazard: list[float] = Field(default_factory=list)
+    bocpd_threshold: list[float] = Field(default_factory=list)
+    bocpd_max_run: list[int | None] = Field(default_factory=list)
 
     @field_validator(
         "dimred",
@@ -108,6 +120,18 @@ class AlgoConfig(BaseModel):
         "umap_num_neighbors",
         "umap_min_dist",
         "umap_metric",
+        "random_state",
+        "ica_max_iter",
+        "ns_lambda",
+        "ns_maturities",
+        "factor_order",
+        "df_maxiter",
+        "fpca_smooth_window",
+        "wbs_n_intervals",
+        "wbs_threshold",
+        "bocpd_hazard",
+        "bocpd_threshold",
+        "bocpd_max_run",
         mode="before",
     )
     @classmethod
@@ -156,6 +180,7 @@ class MetricsConfig(BaseModel):
     mode: MetricsMode | str = MetricsMode.WRITE
     dir: str | None = None
     plot: bool = True
+    plot_ci_ribbons: bool = True
     num_samples: int = 100
     num_features: int = 5
     num_components: int = 3
@@ -217,6 +242,78 @@ class StabilityConfig(BaseModel):
     stability_floor: float = 0.5
 
 
+class StreamingConfig(BaseModel):
+    """Incremental / expanding Graph 1 (``streaming`` YAML section)."""
+
+    model_config = ConfigDict(extra="allow")
+
+    enabled: bool = False
+    mode: str = "expanding"  # expanding | rolling
+    step: int = 50
+    min_history: int = 150
+    window: int = 250  # rolling only
+    lock_prefix: bool = True
+    match_tolerance: int = 5
+
+
+class PanelConfig(BaseModel):
+    """Joint breakpoints across a panel of series groups (``panel`` section)."""
+
+    model_config = ConfigDict(extra="allow")
+
+    enabled: bool = False
+    groupby: str = "source"  # source | tenor | columns
+    combine: str = "majority"  # majority | intersection | union
+    min_group_frac: float = 0.5
+    match_tolerance: int = 5
+    groups: list[list[str]] = Field(default_factory=list)
+
+
+class UncertaintyConfig(BaseModel):
+    """Calibrated uncertainty bands on breakpoints (``uncertainty`` section)."""
+
+    model_config = ConfigDict(extra="allow")
+
+    enabled: bool = False
+    sources: list[str] = Field(default_factory=lambda: ["robustness", "bootstrap"])
+    level: float = 0.9
+    match_tolerance: int = 5
+    n_bootstrap: int = 8
+    bootstrap_block: int = 20
+
+
+class ExcelExportConfig(BaseModel):
+    """Optional workbook export for breakpoints / CI / panel support."""
+
+    model_config = ConfigDict(extra="allow")
+
+    enabled: bool = False
+    # Optional overrides — defaults resolve under metrics.dir / image_dir.
+    path: str | None = None
+    dir: str | None = None
+    filename: str | None = None
+
+
+class ExportConfig(BaseModel):
+    """Artifact export knobs (``export`` YAML section)."""
+
+    model_config = ConfigDict(extra="allow")
+
+    excel: ExcelExportConfig = Field(default_factory=ExcelExportConfig)
+
+
+class EventsConfig(BaseModel):
+    """Dashboard-friendly NDJSON event stream (``events`` YAML section)."""
+
+    model_config = ConfigDict(extra="allow")
+
+    enabled: bool = False
+    path: str | None = None
+    dir: str | None = None
+    filename: str | None = None
+    append: bool = True
+
+
 class RetrainConfig(BaseModel):
     model_config = ConfigDict(extra="allow")
 
@@ -241,6 +338,11 @@ class Config(BaseModel):
     log: LogConfig = Field(default_factory=LogConfig)
     robustness: RobustnessConfig = Field(default_factory=RobustnessConfig)
     stability: StabilityConfig = Field(default_factory=StabilityConfig)
+    streaming: StreamingConfig = Field(default_factory=StreamingConfig)
+    panel: PanelConfig = Field(default_factory=PanelConfig)
+    uncertainty: UncertaintyConfig = Field(default_factory=UncertaintyConfig)
+    export: ExportConfig = Field(default_factory=ExportConfig)
+    events: EventsConfig = Field(default_factory=EventsConfig)
     retrain: RetrainConfig | None = None
 
     @model_validator(mode="before")
@@ -254,6 +356,11 @@ class Config(BaseModel):
         data.setdefault("log", {})
         data.setdefault("robustness", {"enabled": False})
         data.setdefault("stability", {"enabled": False})
+        data.setdefault("streaming", {"enabled": False})
+        data.setdefault("panel", {"enabled": False})
+        data.setdefault("uncertainty", {"enabled": False})
+        data.setdefault("export", {})
+        data.setdefault("events", {"enabled": False})
         return data
 
     def to_params(self) -> dict[str, Any]:

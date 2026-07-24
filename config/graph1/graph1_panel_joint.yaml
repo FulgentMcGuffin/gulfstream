@@ -1,16 +1,18 @@
+# Joint breakpoints across panel groups (product roadmap).
+# On faker SOURCE_TENOR columns uses groupby=source; on synthetic splits features.
 algo:
   dimred: [pca]
   rank_selection_method: [explained_variance]
   threshold: [0.9]
   recursive_method: [full]
-  depth: [2]
-  search_method: [pelt]  # pelt | binseg | bottomup | wbs | bocpd
-  detection_backend: [kernel_ruptures]  # kernel_ruptures | classical
+  depth: [1]
+  search_method: [pelt]
+  detection_backend: [kernel_ruptures]
   feature_map_approx_method: [rff]
   feature_map_kernel_params:
     - kernel: rbf
       gamma_method: median
-  num_features: [50]
+  num_features: [30]
   num_mappings: [1]
   ruptures_kernel_params:
     - kernel: rbf
@@ -18,6 +20,13 @@ algo:
   post_processing_method: [majority_voting]
   min_regime_length: [20]
   include_last_regime: [true]
+
+panel:
+  enabled: true
+  groupby: source
+  combine: majority
+  min_group_frac: 0.5
+  match_tolerance: 5
 
 test:
   choice: [mmd_no_ts]
@@ -35,19 +44,9 @@ test:
 metrics:
   mode: write
   dir: ${IMG_DIR}
-  plot: true
-  num_samples: 100
-  num_features: 5
-  num_components: 3
-  num_shap: 5
-  num_top_features_for_distances: 5
-  requested_features_for_distances: []
+  plot: false
   explainability_features: ["__auto__"]
   features_to_plot: ["__auto__"]
-  warn_threshold: 0.5
-  exp_tree_accuracy: [0.9]
-  exp_tree_bps_decimals: false
-  developer_mode: false
 
 log:
   dir: ${LOG_DIR}
@@ -55,19 +54,12 @@ log:
 
 robustness:
   enabled: false
-  perturbations:
-    depth: [1, 2, 3]
-    significance_level: [0.01, 0.05, 0.1]
-    min_regime_length: [10, 20, 40]
-  match_tolerance: 5
-  low_persistence_threshold: 0.5
 
 stability:
   enabled: false
-  leave_one_source_out: true
-  leave_one_tenor_out: true
-  time_windows:
-    mode: expanding
-    min_frac: 0.5
-  match_tolerance: 5
-  stability_floor: 0.5
+
+streaming:
+  enabled: false
+
+uncertainty:
+  enabled: false

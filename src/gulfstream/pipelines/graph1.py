@@ -100,12 +100,13 @@ def _process_cases(
 ):
     row = misc_params["row"]
     test_num = misc_params["test_num"]
+    last_processed: SegmentResults | None = None
     handler = CASE_HANDLERS.get(case_name)
     if handler is None:
         raise ValueError(f"Unknown case: {case_name}.")
     if not _need_case(case_name, params):
         logger.info("Case %s not needed. Skipping.", case_name)
-        return row, test_num
+        return row, test_num, last_processed
 
     dates = bkpt_timeindexing_conversions.get_strs_from_df_index(df)
     dfs = get_dfs_for_case(df_dimred, case_name)
@@ -174,15 +175,19 @@ def _process_cases(
                         case_params["test_num"] = test_num
                         case_params["robustness"] = params.get("robustness") or {}
                         case_params["stability"] = params.get("stability") or {}
+                        case_params["uncertainty"] = params.get("uncertainty") or {}
+                        case_params["export"] = params.get("export") or {}
+                        case_params["events"] = params.get("events") or {}
                         case_params["_pipeline_params"] = params
                         produce_all_metrics(df, processed, case_params)
-    return row, test_num
+                        last_processed = processed
+    return row, test_num, last_processed
 
 
 def _main_driver(df: pl.DataFrame, params: dict, misc_params: dict):
     if uses_classical_backend(params):
-        test_num, row, _last = classical_driver(df, params, misc_params)
-        return test_num, row
+        test_num, row, last = classical_driver(df, params, misc_params)
+        return test_num, row, last
 
     if custom_hyperparameter_selection.asked_for_acf_lag_selection(params):
         df_pca = custom_hyperparameter_selection.calculate_pca_for_lag_selection(df)
@@ -191,20 +196,23 @@ def _main_driver(df: pl.DataFrame, params: dict, misc_params: dict):
 
     test_num = misc_params["test_num"]
     row = misc_params["row"]
+    last_processed: SegmentResults | None = None
     for res in dimension_reduction.dimred_generator(df, params):
         df_dimred = res.df
         algo_params = dimension_reduction.get_dimred_param_dict(res)
         for case_name in CASE_HANDLERS:
             algo_params["recursive_method"] = case_name
             try:
-                row, test_num = _process_cases(
+                row, test_num, proc = _process_cases(
                     case_name, df, df_dimred, df_pca, params, misc_params, algo_params
                 )
                 misc_params["row"] = row
                 misc_params["test_num"] = test_num
+                if proc is not None:
+                    last_processed = proc
             except Exception:
                 logger.exception("Failed processing case %s.", case_name)
-    return test_num, row
+    return test_num, row, last_processed
 
 
 def run_graph1(df: pl.DataFrame, params: dict) -> SegmentResults | None:
@@ -240,10 +248,22 @@ def run_graph1(df: pl.DataFrame, params: dict) -> SegmentResults | None:
                 logger.warning("Missing explainability features: %s", ", ".join(missing))
 
         # Prefer Hamilton single-pass for the returned result (deduped core).
+        # Product modes: streaming / panel joint replace the single pass.
+        streaming_on = bool((params.get("streaming") or {}).get("enabled"))
+        panel_on = bool((params.get("panel") or {}).get("enabled"))
         try:
-            _unproc, last_result = run_single_segmentation_pair(df, params)
+            if streaming_on:
+                from gulfstream.pipelines.streaming import run_streaming_graph1
+
+                last_result = run_streaming_graph1(df, params)
+            elif panel_on:
+                from gulfstream.pipelines.panel import run_panel_joint_segmentation
+
+                last_result = run_panel_joint_segmentation(df, params)
+            else:
+                _unproc, last_result = run_single_segmentation_pair(df, params)
         except Exception:
-            logger.exception("Hamilton single-pass failed; continuing with grid driver.")
+            logger.exception("Graph 1 single-pass / product path failed; continuing.")
 
         misc_params = {
             "test_num": 0,
@@ -254,7 +274,25 @@ def run_graph1(df: pl.DataFrame, params: dict) -> SegmentResults | None:
             "metrics": params["metrics"],
             "data_params": {},
         }
-        _main_driver(df, params, misc_params)
+        # Skip the full algo grid when streaming/panel owns the result (keeps smoke fast).
+        if streaming_on or panel_on:
+            if last_result is not None:
+                case_params = {
+                    **params,
+                    "_pipeline_params": params,
+                    "metrics": {
+                        **params.get("metrics", {}),
+                        "image_dir": image_dir or params.get("metrics", {}).get("dir"),
+                    },
+                }
+                last_result = produce_all_metrics(df, last_result, case_params)
+        else:
+            _tn, _row, grid_last = _main_driver(df, params, misc_params)
+            if grid_last is not None and (
+                last_result is None or not list(last_result.bkpts or [])
+            ):
+                last_result = grid_last
+
         if results_writer is not None:
             results_writer.close()
         if image_dir is not None:

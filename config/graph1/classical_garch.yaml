@@ -1,0 +1,24 @@
+algo:
+  detection_backend: [classical]
+  dimred: [raw]
+  feature_map_approx_method: [raw]
+  regime_detection_algorithm: [garch]
+  regimes: [2]
+  garch_p: [1]
+  garch_q: [1]
+  garch_min_dwell: [5]
+  random_state: [42]
+  post_processing_method: [majority_voting]
+  min_regime_length: [10]
+  include_last_regime: [true]
+
+metrics:
+  mode: write
+  dir: ${IMG_DIR}
+  plot: true
+  explainability_features: ["__auto__"]
+  features_to_plot: ["__auto__"]
+
+log:
+  dir: ${LOG_DIR}
+  level: INFO

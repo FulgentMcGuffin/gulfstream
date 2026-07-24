@@ -8,9 +8,16 @@ import polars as pl
 from gulfstream.dimred.classical import dmd as dmd_mod
 from gulfstream.common import frames
 from gulfstream.common.options import DimredMethod, values as option_values
+from gulfstream.dimred.classical import autoencoder as autoencoder_mod
+from gulfstream.dimred.classical import diebold_li as diebold_li_mod
+from gulfstream.dimred.classical import dynamic_factor as dynamic_factor_mod
+from gulfstream.dimred.classical import fpca as fpca_mod
+from gulfstream.dimred.classical import ica as ica_mod
 from gulfstream.dimred.classical import kpca as kpca_mod
 from gulfstream.dimred import model_based as model_dimred
+from gulfstream.dimred.classical import nelson_siegel as nelson_siegel_mod
 from gulfstream.dimred.classical import pca as pca_mod
+from gulfstream.dimred.classical import sparse_robust_pca as sparse_robust_pca_mod
 from gulfstream.dimred.classical import tsne as tsne_mod
 from gulfstream.dimred.classical import umap as umap_mod
 from gulfstream.common.results import DimredResults
@@ -32,6 +39,14 @@ GENERATORS = {
     DimredMethod.DMD: dmd_mod._dmd_generator,
     DimredMethod.TSNE: tsne_mod._tsne_generator,
     DimredMethod.UMAP: umap_mod._umap_generator,
+    DimredMethod.ICA: ica_mod._ica_generator,
+    DimredMethod.FPCA: fpca_mod._fpca_generator,
+    DimredMethod.NELSON_SIEGEL: nelson_siegel_mod._nelson_siegel_generator,
+    DimredMethod.DYNAMIC_FACTOR: dynamic_factor_mod._dynamic_factor_generator,
+    DimredMethod.DIEBOLD_LI: diebold_li_mod._diebold_li_generator,
+    DimredMethod.SPARSE_PCA: sparse_robust_pca_mod._sparse_pca_generator,
+    DimredMethod.ROBUST_PCA: sparse_robust_pca_mod._robust_pca_generator,
+    DimredMethod.AUTOENCODER: autoencoder_mod._autoencoder_generator,
     **model_dimred.GENERATORS,
 }
 
@@ -70,6 +85,14 @@ def get_dimred_param_dict(res: DimredResults) -> dict:
         out["umap_min_dist"] = res.umap_min_dist
     if res.umap_metric is not None:
         out["umap_metric"] = res.umap_metric
+    if res.ica_max_iter is not None:
+        out["ica_max_iter"] = res.ica_max_iter
+    if res.ns_lambda is not None:
+        out["ns_lambda"] = res.ns_lambda
+    if res.factor_order is not None:
+        out["factor_order"] = res.factor_order
+    if res.fpca_smooth_window is not None:
+        out["fpca_smooth_window"] = res.fpca_smooth_window
     return {k: v for k, v in out.items() if v is not None}
 
 

@@ -9,7 +9,7 @@ Three pipeline modes share one CLI / API surface:
 
 Classical detectors also appear as **soft dimred embeddings** (`algo.dimred: [kmeans|hmm|…]`) feeding the kernel_ruptures path — orthogonal to hard-label `detection_backend: classical`.
 
-For notebooks and scripts, prefer the **public API** in `gulfstream.api` (re-exported from `import gulfstream`): `load_features`, `detect_regimes`, `refine_regimes`, `run_single_segmentation`, `plot_regimes`, and `regime_intervals`. Pipeline internals (`run_graph1`, Hamilton drivers, etc.) remain available but are not the supported entry point.
+For notebooks and scripts, prefer the **public API** in `gulfstream.api` (re-exported from `import gulfstream`): `load_features`, `detect_regimes`, `detect_regimes_incremental`, `detect_regimes_panel`, `refine_regimes`, `run_single_segmentation`, `plot_regimes`, and `regime_intervals`. Pipeline internals (`run_graph1`, Hamilton drivers, etc.) remain available but are not the supported entry point.
 
 Single-pass segmentation — shared by Graph 2 and the robustness/stability stages — and CLI feature loading are implemented as [Apache Hamilton](https://hamilton.apache.org/) dataflows under `gulfstream.pipelines.hamilton`.
 
@@ -46,13 +46,38 @@ uv run python -m gulfstream.cli --mode graph1 --config config/graph1/classical_k
 uv run python -m gulfstream.cli --mode graph1 --config config/graph1/classical_hdbscan.yaml --source-config config/sources/synthetic.yaml
 uv run python -m gulfstream.cli --mode graph1 --config config/graph1/classical_optics.yaml --source-config config/sources/synthetic.yaml
 uv run python -m gulfstream.cli --mode graph1 --config config/graph1/classical_hmm.yaml --source-config config/sources/synthetic.yaml
+uv run python -m gulfstream.cli --mode graph1 --config config/graph1/classical_jump_model.yaml --source-config config/sources/synthetic.yaml
+uv run python -m gulfstream.cli --mode graph1 --config config/graph1/classical_sticky_hdp_hmm.yaml --source-config config/sources/synthetic.yaml
+uv run python -m gulfstream.cli --mode graph1 --config config/graph1/classical_garch.yaml --source-config config/sources/synthetic.yaml
+uv run python -m gulfstream.cli --mode graph1 --config config/graph1/classical_ms_var.yaml --source-config config/sources/synthetic.yaml
+uv run python -m gulfstream.cli --mode graph1 --config config/graph1/classical_stochastic_vol.yaml --source-config config/sources/synthetic.yaml
+uv run python -m gulfstream.cli --mode graph1 --config config/graph1/classical_change_in_covariance.yaml --source-config config/sources/synthetic.yaml
+
+# Product: streaming / panel joint / uncertainty / export+events
+uv run python -m gulfstream.cli --mode graph1 --config config/graph1/graph1_streaming_expanding.yaml --source-config config/sources/synthetic.yaml
+uv run python -m gulfstream.cli --mode graph1 --config config/graph1/graph1_panel_joint.yaml --source-config config/sources/synthetic.yaml
+uv run python -m gulfstream.cli --mode graph1 --config config/graph1/graph1_panel_joint.yaml --source-config config/sources/faker.yaml
+uv run python -m gulfstream.cli --mode graph1 --config config/graph1/graph1_uncertainty_bands.yaml --source-config config/sources/synthetic.yaml
+uv run python -m gulfstream.cli --mode graph1 --config config/graph1/graph1_export_events.yaml --source-config config/sources/synthetic.yaml
+
+# Alternate candidate search (WBS / BOCPD)
+uv run python -m gulfstream.cli --mode graph1 --config config/graph1/graph1_wbs_search.yaml --source-config config/sources/synthetic.yaml
+uv run python -m gulfstream.cli --mode graph1 --config config/graph1/graph1_bocpd_search.yaml --source-config config/sources/synthetic.yaml
 ```
 
 Dimred options for Graph 1 / Graph 2 configs:
 
 | Method | Embedding emitted |
 |--------|-------------------|
-| `pca` / `kpca` / `raw` / `dmd` / `tsne`  | classical / manifold embeddings |
+| `pca` / `kpca` / `raw` / `dmd` / `tsne` / `umap` | classical / manifold embeddings |
+| `ica` | FastICA independent components (`rank`) |
+| `fpca` | functional PCA (smooth along feature axis, then PCA) |
+| `nelson_siegel` | Nelson–Siegel β0/β1/β2 (level/slope/curvature) per date |
+| `diebold_li` | Diebold–Li — NS with per-date λ grid search |
+| `dynamic_factor` | statsmodels DynamicFactor scores (PCA fallback) |
+| `sparse_pca` | sklearn SparsePCA components (`rank`, `sparse_pca_alpha`) |
+| `robust_pca` | GoDec-style robust PCA scores (`rank`) |
+| `autoencoder` | torch MLP autoencoder latents (`rank`, `ae_epochs`) |
 | `bayesian_gmm` | mixture responsibilities |
 | `hmm` | posterior state probabilities |
 | `kmeans` | distances to cluster centers |
@@ -63,7 +88,7 @@ Dimred options for Graph 1 / Graph 2 configs:
 | `ruptures` | distances to PELT/window/Dynp segment means |
 | `tft` | TFT attention-vector embeddings (`rank` = hidden size) |
 
-TFT needs `lightning` and `pytorch-forecasting` (both installed); Model-based dimred methods read `algo.regimes` where relevant — HDBSCAN, OPTICS, Wasserstein, and ruptures-pelt can omit it; TFT uses `rank`. Post-information regime clustering is controlled by `metrics.regime_cluster_algorithms` (`kmeans`, `hdbscan`, or `optics`; default `kmeans`).
+TFT needs `lightning` and `pytorch-forecasting` (both installed); Model-based dimred methods read `algo.regimes` where relevant — HDBSCAN, OPTICS, Wasserstein, and ruptures-pelt can omit it; TFT uses `rank`. Curve-oriented methods: `nelson_siegel` / `fpca` / `dynamic_factor` treat feature columns as an ordered tenor grid when possible. Post-information regime clustering is controlled by `metrics.regime_cluster_algorithms` (`kmeans`, `hdbscan`, or `optics`; default `kmeans`).
 
 ```bash
 # Graph 1 with model-based dimred
@@ -73,6 +98,16 @@ uv run python -m gulfstream.cli --mode graph1 --config config/graph1/graph1_hdbs
 uv run python -m gulfstream.cli --mode graph1 --config config/graph1/graph1_optics_dimred.yaml --source-config config/sources/synthetic.yaml
 uv run python -m gulfstream.cli --mode graph1 --config config/graph1/graph1_ruptures_dimred.yaml --source-config config/sources/synthetic.yaml
 uv run python -m gulfstream.cli --mode graph1 --config config/graph1/graph1_tft_dimred.yaml --source-config config/sources/synthetic.yaml
+
+# Graph 1 with curve / ICA dimred
+uv run python -m gulfstream.cli --mode graph1 --config config/graph1/graph1_ica_dimred.yaml --source-config config/sources/synthetic.yaml
+uv run python -m gulfstream.cli --mode graph1 --config config/graph1/graph1_fpca_dimred.yaml --source-config config/sources/synthetic.yaml
+uv run python -m gulfstream.cli --mode graph1 --config config/graph1/graph1_nelson_siegel_dimred.yaml --source-config config/sources/synthetic.yaml
+uv run python -m gulfstream.cli --mode graph1 --config config/graph1/graph1_dynamic_factor_dimred.yaml --source-config config/sources/synthetic.yaml
+uv run python -m gulfstream.cli --mode graph1 --config config/graph1/graph1_diebold_li_dimred.yaml --source-config config/sources/synthetic.yaml
+uv run python -m gulfstream.cli --mode graph1 --config config/graph1/graph1_sparse_pca_dimred.yaml --source-config config/sources/synthetic.yaml
+uv run python -m gulfstream.cli --mode graph1 --config config/graph1/graph1_robust_pca_dimred.yaml --source-config config/sources/synthetic.yaml
+uv run python -m gulfstream.cli --mode graph1 --config config/graph1/graph1_autoencoder_dimred.yaml --source-config config/sources/synthetic.yaml
 ```
 
 ### Source types
@@ -95,7 +130,7 @@ For a guided walkthrough on real DuckDB data, see [`notebooks/`](notebooks/). `0
 | Part | Focus |
 |------|--------|
 | A–C | PCA / kPCA / DMD — Graph 1 + Graph 2 |
-| D | Binseg / BottomUp search (`SearchMethod`) |
+| D | Search methods (`SearchMethod`: PELT / Binseg / BottomUp / WBS / BOCPD) |
 | E | `energy_distance` / `mmd_unbiased` tests (`StatTest`) |
 | F | ESS window hyperparameter |
 | G | Classical hard-label detectors (`detection_backend: classical`) + Graph 2 |
@@ -232,7 +267,7 @@ gulfstream/
 │   ├── dimred/             # dispatcher, classical/*, model_based/, density
 │   ├── features/           # kernel_map, names
 │   ├── metrics/            # evaluation, plots, insights, explainability, robustness, ...
-│   └── detectors/          # kmeans, hmm, hdbscan, optics, msar, ruptures, wasserstein, tft
+│   └── detectors/          # kmeans, hmm, jump_model, sticky_hdp_hmm, garch, …
 └── outputs/
     ├── metrics/            # PNGs, Excel, gallery.html
     └── logs/
@@ -333,10 +368,15 @@ Prefer `import gulfstream` over pipeline internals (`run_graph1`, Hamilton nodes
 | **RFF** | Random Fourier Features approximating an RBF kernel |
 | **MMD** | Maximum Mean Discrepancy two-sample test |
 | **energy_distance** | Distribution-free two-sample test (no kernel bandwidth) |
-| **PELT / Binseg / BottomUp** | Ruptures search methods for candidate breakpoints (`algo.search_method`) |
+| **hotelling_t2 / multivariate_cusum / ks_pca** | Parametric / score-based breakpoint tests (`test.choice`) |
+| **mmd_linear** | Gretton linear-time MMD² estimator |
+| **PELT / Binseg / BottomUp / WBS / BOCPD** | Candidate breakpoint search (`algo.search_method`) |
 | **detection_backend** | `kernel_ruptures` (default) or `classical` hard-label detectors |
-| **classical detector** | k-means / HMM / HDBSCAN / … via `algo.regime_detection_algorithm` |
+| **classical detector** | Hard-label method via `algo.regime_detection_algorithm` (k-means, HMM, jump_model, sticky_hdp_hmm, garch, …) |
 | **ESS window** | Data-driven MMD window from effective sample size (`test.window.method: ess`) |
+| **streaming** | Expanding/rolling incremental Graph 1 (`streaming.enabled`) |
+| **panel joint** | Consensus breakpoints across series groups (`panel.enabled`) |
+| **bkpt_ci** | Calibrated index uncertainty band per breakpoint (`uncertainty.enabled`) |
 | **covering / F1** | Breakpoint-set metrics: interval covering and precision/recall/F1 with tolerance |
 | **regimes_df** | Start/End/Regime(+ hierarchy) table used to seed Graph 2 |
 
@@ -356,9 +396,58 @@ Detection is configured under `algo` (search + dimred + backend) and `test` (val
 ```yaml
 algo:
   detection_backend: [classical]
-  regime_detection_algorithm: [kmeans]  # hmm | hdbscan | optics | …
+  regime_detection_algorithm: [kmeans]  # hmm | hdbscan | optics | jump_model | …
   regimes: [3]
 ```
+
+### Classical regime detectors (`algo.regime_detection_algorithm`)
+
+Hard-label path (`detection_backend: classical`). Each emits labels → breakpoints.
+
+| Detector | YAML value | Notes |
+|----------|------------|-------|
+| k-means | `kmeans` | Clustering on the feature matrix |
+| HMM | `hmm` | Gaussian HMM (`hmm_emissions`, `regimes`) |
+| Bayesian GMM | `bayesian_gmm` | Dirichlet-process mixture responsibilities → labels |
+| HDBSCAN / OPTICS | `hdbscan` / `optics` | Density clustering |
+| MSAR | `msar` | Markov-switching AR on PC1 |
+| Ruptures / Wasserstein | `ruptures` / `wasserstein` | Segmentation / OT clustering |
+| Jump model | `jump_model` | Temporal clustering + jump penalty λ |
+| Sticky HDP-HMM | `sticky_hdp_hmm` | Truncated sticky HDP-HMM (Fox κ) |
+| GARCH vol regimes | `garch` | GARCH(1,1) σ̂_t → volatility regimes |
+| MS-VAR | `ms_var` | Regime-switching VAR via HMM on lagged PCs |
+| Stochastic vol | `stochastic_vol` | EWMA / realised-vol proxy → vol regimes |
+| Change-in-covariance | `change_in_covariance` | Rolling corr/cov path → loading/cov breaks |
+
+```yaml
+# examples
+algo:
+  detection_backend: [classical]
+  regime_detection_algorithm: [jump_model]
+  regimes: [3]
+  jump_penalty: [5.0]
+
+algo:
+  detection_backend: [classical]
+  regime_detection_algorithm: [ms_var]
+  regimes: [2]
+  ms_var_lags: [1]
+  ms_var_n_pc: [3]
+
+algo:
+  detection_backend: [classical]
+  regime_detection_algorithm: [stochastic_vol]
+  regimes: [2]
+  sv_window: [20]
+
+algo:
+  detection_backend: [classical]
+  regime_detection_algorithm: [change_in_covariance]
+  regimes: [2]
+  cic_window: [40]
+```
+
+Configs: `config/graph1/classical_*.yaml`.
 
 ### Search (`algo.search_method`)
 
@@ -367,11 +456,20 @@ algo:
 | PELT | `pelt` | Default — exact segmentation with penalty |
 | Binary segmentation | `binseg` | Greedy top-down splits |
 | Bottom-up | `bottomup` | Agglomerative merge of segments |
+| Wild Binary Segmentation | `wbs` | Fryzlewicz WBS — random-interval CUSUM (good for close breaks) |
+| Bayesian Online CPD | `bocpd` | Adams–MacKay online run-length posterior peaks |
 
 ```yaml
 algo:
-  search_method: [binseg]   # or [bottomup]
+  search_method: [wbs]       # or [bocpd] | [binseg] | [bottomup]
+  wbs_n_intervals: [200]     # WBS only
+  random_state: [42]
+  # bocpd_hazard: [0.01]     # BOCPD only — expected run length ≈ 1/hazard
+  # bocpd_threshold: [0.4]   # posterior mass on run length 0
+  # bocpd_max_run: [200]     # truncate run-length support
 ```
+
+Configs: `config/graph1/graph1_wbs_search.yaml`, `config/graph1/graph1_bocpd_search.yaml`.
 
 ### Tests (`test.choice`)
 
@@ -381,12 +479,19 @@ algo:
 | MMD (time series) | `mmd_ts` | Accounts for temporal structure |
 | MMD (permutation) | `mmd_perm` | Permutation-based p-value |
 | Unbiased MMD | `mmd_unbiased` | U-statistic MMD estimator |
+| Linear-time MMD | `mmd_linear` | Gretton O(n) paired MMD² |
 | Energy distance | `energy_distance` | No RBF bandwidth; good when kernel tuning is awkward |
+| Hotelling T² | `hotelling_t2` | Two-sample mean test (auto-PCA if high-dim) |
+| Multivariate CUSUM | `multivariate_cusum` | Crosier MCUSUM of whitened residuals |
+| KS on PCA scores | `ks_pca` | Kolmogorov–Smirnov on leading pooled PCA scores |
 
 ```yaml
 test:
-  choice: [energy_distance]   # or [mmd_unbiased]
+  choice: [hotelling_t2]   # or [ks_pca] | [multivariate_cusum] | [mmd_linear]
 ```
+
+Hotelling / CUSUM / KS-PCA automatically project to a few PCs when the feature
+map is high-dimensional relative to the window size (e.g. default RFF).
 
 ### Window hyperparameters (`test.window`)
 
@@ -412,15 +517,96 @@ test:
 | Hausdorff distance | (internal; used in robustness/stability) | Set distance between breakpoint lists |
 | Covering | `covering_metric` | Interval overlap between two segmentations |
 | Breakpoint F1 | `breakpoint_precision_recall_f1` | Precision / recall / F1 with day tolerance |
+| Adjusted Rand index | `adjusted_rand_index` / `adjusted_rand_index_labels` | Agreement between two labelings (bkpts→labels or raw labels) |
+| V-measure / NMI | `v_measure` / `normalized_mutual_info` (+ `_labels`) | Homogeneity/completeness and normalised MI |
+| Temporal Hamming | `temporal_hamming` / `temporal_hamming_labels` | Annotation error after optimal label permutation |
+| FDR on candidates | `fdr_control_breakpoints` | Benjamini–Hochberg keep/reject over breakpoint p-values |
 
-Notebooks compare runs with `covering_metric` and `breakpoint_precision_recall_f1` against a PCA baseline.
+```python
+from gulfstream.metrics.evaluation import (
+    adjusted_rand_index,
+    adjusted_rand_index_labels,
+    fdr_control_breakpoints,
+    normalized_mutual_info,
+    temporal_hamming,
+    v_measure,
+)
+
+ari = adjusted_rand_index(baseline.bkpts, other.bkpts, length=n)
+vm = v_measure(baseline.bkpts, other.bkpts, n)["v_measure"]
+nmi = normalized_mutual_info(baseline.bkpts, other.bkpts, n)
+ham = temporal_hamming(baseline.bkpts, other.bkpts, n)["annotation_error"]
+fdr = fdr_control_breakpoints(candidates, pvalues, alpha=0.05)
+```
+
+Notebooks compare runs with `covering_metric`, `breakpoint_precision_recall_f1`, and `adjusted_rand_index` against a PCA baseline.
+
+### Product features
+
+| Feature | Config / API | Notes |
+|---------|--------------|-------|
+| Streaming Graph 1 | `streaming.enabled` / `detect_regimes_incremental` | Expanding or rolling windows; optional `lock_prefix` for confirmed breaks |
+| Panel joint breakpoints | `panel.enabled` / `detect_regimes_panel` | Per-group segmentation → majority / intersection / union consensus; `panel_support` |
+| Uncertainty bands | `uncertainty.enabled` → `SegmentResults.bkpt_ci` | Percentile bands from robustness HP ensembles + block bootstrap |
+| CI ribbon overlays | `metrics.plot_ci_ribbons` (default true) | Shaded index bands on regime plots from `bkpt_ci` |
+| Excel export | `export.excel` | Breakpoints / CI / PanelSupport / Meta sheets; optional `path` or `dir`+`filename` |
+| JSON event stream | `events` | NDJSON lines (`run_started`, `breakpoint_confirmed`, `run_complete`, …) |
+
+```yaml
+streaming:
+  enabled: true
+  mode: expanding   # or rolling
+  step: 80
+  min_history: 200
+  lock_prefix: true
+
+panel:
+  enabled: true
+  groupby: source   # source | tenor | columns
+  combine: majority
+  min_group_frac: 0.5
+
+uncertainty:
+  enabled: true
+  sources: [robustness, bootstrap]
+  level: 0.9
+  n_bootstrap: 8
+  bootstrap_block: 20
+
+metrics:
+  plot_ci_ribbons: true   # shade bkpt_ci bands on regime plots
+
+export:
+  excel:
+    enabled: true
+    # path: outputs/run.xlsx   # optional full path
+    dir: null                  # optional; defaults under metrics.dir
+    filename: bkpt_export.xlsx # optional
+
+events:
+  enabled: true
+  # path: outputs/events.ndjson
+  dir: null
+  filename: events.ndjson
+  append: false
+```
+
+```python
+from gulfstream import detect_regimes, detect_regimes_incremental, detect_regimes_panel
+
+res = detect_regimes(df, params)                    # respects streaming/panel flags
+res, state = detect_regimes_incremental(df, params) # one streaming step
+res = detect_regimes_panel(df, params)              # joint panel consensus
+# res.bkpt_ci[b] -> (lo, hi); res.panel_support[b] -> fraction of groups
+```
+
+Configs: `config/graph1/graph1_streaming_expanding.yaml`, `graph1_panel_joint.yaml`, `graph1_uncertainty_bands.yaml`, `graph1_export_events.yaml`.
 
 ### Roadmap (suggested next)
 
 | Level | Candidates |
 |-------|------------|
-| Search | Wild Binary Segmentation (WBS); Bayesian Online Changepoint Detection (BOCPD) |
-| Tests | Hotelling T² / multivariate CUSUM; KS on PCA scores; linear-time MMD |
-| Dimred | Nelson–Siegel / dynamic factors for curves; ICA; functional PCA |
-| Metrics | Adjusted Rand index between labelings |
-| Legacy regimes | Jump models; sticky HDP-HMM; GARCH volatility regimes |
+| Search | Seeded / wild binary segmentation 2.0 (SBS); MOSUM / moving-sum scanners; kernel change-point (KCP) |
+| Tests | Classifier two-sample test (C2ST); Cramér–von Mises; block-bootstrap MMD; Wasserstein / Sinkhorn two-sample |
+| Product | Live tick / websocket ingest adapters; alert hooks when a new break is confirmed; conformal coverage calibration on synthetic holdouts; multi-resolution streaming (coarse→fine); Graph 2 warm-start from streaming state |
+| Ops | Deterministic replay of streaming runs; latency / cost budgets per step |

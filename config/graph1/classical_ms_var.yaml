@@ -1,0 +1,23 @@
+algo:
+  detection_backend: [classical]
+  dimred: [raw]
+  feature_map_approx_method: [raw]
+  regime_detection_algorithm: [ms_var]
+  regimes: [2]
+  ms_var_lags: [1]
+  ms_var_n_pc: [3]
+  random_state: [42]
+  post_processing_method: [majority_voting]
+  min_regime_length: [20]
+  include_last_regime: [true]
+
+metrics:
+  mode: write
+  dir: ${IMG_DIR}
+  plot: false
+  explainability_features: ["__auto__"]
+  features_to_plot: ["__auto__"]
+
+log:
+  dir: ${LOG_DIR}
+  level: INFO

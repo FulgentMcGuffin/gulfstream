@@ -18,6 +18,14 @@ class DimredMethod(StrEnum):
     DMD = "dmd"
     TSNE = "tsne"
     UMAP = "umap"
+    ICA = "ica"
+    FPCA = "fpca"
+    NELSON_SIEGEL = "nelson_siegel"
+    DYNAMIC_FACTOR = "dynamic_factor"
+    DIEBOLD_LI = "diebold_li"
+    SPARSE_PCA = "sparse_pca"
+    ROBUST_PCA = "robust_pca"
+    AUTOENCODER = "autoencoder"
     BAYESIAN_GMM = "bayesian_gmm"
     HMM = "hmm"
     KMEANS = "kmeans"
@@ -45,7 +53,11 @@ class StatTest(StrEnum):
     MMD_TS = "mmd_ts"
     MMD_PERM = "mmd_perm"
     MMD_UNBIASED = "mmd_unbiased"
+    MMD_LINEAR = "mmd_linear"
     ENERGY_DISTANCE = "energy_distance"
+    HOTELLING_T2 = "hotelling_t2"
+    MULTIVARIATE_CUSUM = "multivariate_cusum"
+    KS_PCA = "ks_pca"
 
 
 class SearchMethod(StrEnum):
@@ -54,6 +66,8 @@ class SearchMethod(StrEnum):
     PELT = "pelt"
     BINSEG = "binseg"
     BOTTOMUP = "bottomup"
+    WBS = "wbs"
+    BOCPD = "bocpd"
 
 
 class DetectionBackend(StrEnum):
@@ -74,6 +88,12 @@ class ClassicalDetector(StrEnum):
     MSAR = "msar"
     RUPTURES = "ruptures"
     WASSERSTEIN = "wasserstein"
+    JUMP_MODEL = "jump_model"
+    STICKY_HDP_HMM = "sticky_hdp_hmm"
+    GARCH = "garch"
+    MS_VAR = "ms_var"
+    STOCHASTIC_VOL = "stochastic_vol"
+    CHANGE_IN_COVARIANCE = "change_in_covariance"
 
 
 class PostProcessing(StrEnum):

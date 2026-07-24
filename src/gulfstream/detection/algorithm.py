@@ -64,18 +64,52 @@ def candidate_breakpoints(
     *,
     search_method: str = SearchMethod.PELT,
     min_size: int = 10,
+    algo_params: dict | None = None,
 ) -> list[int]:
-    """Find candidate breakpoints via PELT, Binseg, or BottomUp."""
+    """Find candidate breakpoints via PELT, Binseg, BottomUp, WBS, or BOCPD."""
+    from gulfstream.detection import search as search_mod
+
     cost, cost_params = _cost_and_params(kernel_params)
     method = str(search_method).lower()
     n = len(signal)
+    algo_params = algo_params or {}
+    n_bkps = max(1, n // 50)
     try:
         if method == SearchMethod.BINSEG:
             algo = rpt.Binseg(model=cost, params=cost_params, min_size=min_size, jump=5)
-            bkpts = algo.fit_predict(signal, n_bkps=max(1, n // 50))
+            bkpts = algo.fit_predict(signal, n_bkps=n_bkps)
         elif method == SearchMethod.BOTTOMUP:
             algo = rpt.BottomUp(model=cost, params=cost_params, min_size=min_size, jump=5)
-            bkpts = algo.fit_predict(signal, n_bkps=max(1, n // 50))
+            bkpts = algo.fit_predict(signal, n_bkps=n_bkps)
+        elif method == SearchMethod.WBS or method == "wbs":
+            wbs_intervals = algo_params.get("wbs_n_intervals", [200])
+            wbs_thr = algo_params.get("wbs_threshold", [None])
+            wbs_seed = algo_params.get("random_state", [42])
+            n_int = int(wbs_intervals[0] if isinstance(wbs_intervals, list) else wbs_intervals)
+            thr = wbs_thr[0] if isinstance(wbs_thr, list) else wbs_thr
+            seed = wbs_seed[0] if isinstance(wbs_seed, list) else wbs_seed
+            bkpts = search_mod.wild_binary_segmentation(
+                signal,
+                n_intervals=n_int,
+                n_bkps=n_bkps,
+                min_size=min_size,
+                threshold=None if thr is None else float(thr),
+                random_state=None if seed is None else int(seed),
+            )
+        elif method == SearchMethod.BOCPD or method == "bocpd":
+            hazards = algo_params.get("bocpd_hazard", [1.0 / 100.0])
+            thresholds = algo_params.get("bocpd_threshold", [0.5])
+            max_runs = algo_params.get("bocpd_max_run", [None])
+            hazard = float(hazards[0] if isinstance(hazards, list) else hazards)
+            thr = float(thresholds[0] if isinstance(thresholds, list) else thresholds)
+            max_run = max_runs[0] if isinstance(max_runs, list) else max_runs
+            bkpts = search_mod.bayesian_online_changepoint_detection(
+                signal,
+                hazard=hazard,
+                threshold=thr,
+                max_run=None if max_run is None else int(max_run),
+                min_size=min_size,
+            )
         else:
             algo = rpt.Pelt(model=cost, params=cost_params, min_size=min_size)
             pen = float(np.log(max(n, 2)) * np.std(signal) ** 2)
@@ -127,6 +161,7 @@ def find_and_test_bkpts(
             kernel_params,
             search_method=search_method,
             min_size=10,
+            algo_params=case_params.get("algo", {}),
         )
         if not local:
             return
