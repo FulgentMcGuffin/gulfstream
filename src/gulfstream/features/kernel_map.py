@@ -10,6 +10,7 @@ from sklearn.kernel_approximation import Nystroem, RBFSampler
 
 from gulfstream.common import frames
 from gulfstream.common import utils
+from gulfstream.common.options import FeatureMapApprox, GammaMethod, KernelName, StatTest
 from gulfstream.common.results import ManyMappingResults, MappingResults
 
 logger = logging.getLogger(__name__)
@@ -23,10 +24,10 @@ def map_data(
     **kwargs,
 ) -> MappingResults:
     handlers = {
-        "rff": _rff_data,
-        "nystroem": _nystroem_data,
-        "raw": _raw_data,
-        "inv_rff": _rff_data,
+        FeatureMapApprox.RFF: _rff_data,
+        FeatureMapApprox.NYSTROEM: _nystroem_data,
+        FeatureMapApprox.RAW: _raw_data,
+        FeatureMapApprox.INV_RFF: _rff_data,
     }
     handler = handlers.get(method)
     if not handler:
@@ -38,9 +39,9 @@ def _process_heuristics(df: pl.DataFrame | None, kernel_params: dict) -> dict:
     if df is None:
         return dict(kernel_params) if kernel_params else {}
     params = dict(kernel_params or {})
-    if params.get("kernel") == "rbf":
+    if params.get("kernel") == KernelName.RBF:
         gamma_method = params.get("gamma_method")
-        if gamma_method and gamma_method != "user_specified":
+        if gamma_method and gamma_method != GammaMethod.USER_SPECIFIED:
             params["gamma"] = utils._calculate_bandwidth(df, gamma_method)
         elif "gamma" in params and isinstance(params["gamma"], str):
             params["gamma"] = utils._calculate_bandwidth(df, params["gamma"])
@@ -116,7 +117,8 @@ def _raw_data(df: pl.DataFrame, **kwargs) -> MappingResults:
 def _get_diffs_if_needed(df: pl.DataFrame, params: dict) -> pl.DataFrame | None:
     if "test" not in params or "choice" not in params["test"]:
         return None
-    if "mmd_ts" in params["test"]["choice"] or "mmd_perm" in params["test"]["choice"]:
+    choices = params["test"]["choice"]
+    if StatTest.MMD_TS in choices or StatTest.MMD_PERM in choices:
         feat_cols = frames.feature_columns(df)
         return df.with_columns([pl.col(c).diff() for c in feat_cols]).drop_nulls()
     return None
@@ -130,12 +132,12 @@ def _map_df_many_times(df, method, num_mappings, **kwargs):
 
 def _rff_param_generator(params: dict):
     for kernel_params in params["algo"].get("feature_map_kernel_params", []):
-        if kernel_params.get("kernel") == "rbf":
+        if kernel_params.get("kernel") == KernelName.RBF:
             yield kernel_params
 
 
 def _nystroem_param_generator(params: dict):
-    valid = {"rbf", "laplacian", "poly", "additive_chi2", "sigmoid", "chi2", "linear", "cosine"}
+    valid = set(KernelName)
     for kernel_params in params["algo"].get("feature_map_kernel_params", []):
         if kernel_params.get("kernel") in valid:
             yield kernel_params
@@ -147,10 +149,10 @@ def _raw_param_generator(params: dict):
 
 def _mapping_param_generator(params: dict):
     handlers = {
-        "rff": _rff_param_generator,
-        "nystroem": _nystroem_param_generator,
-        "inv_rff": _rff_param_generator,
-        "raw": _raw_param_generator,
+        FeatureMapApprox.RFF: _rff_param_generator,
+        FeatureMapApprox.NYSTROEM: _nystroem_param_generator,
+        FeatureMapApprox.INV_RFF: _rff_param_generator,
+        FeatureMapApprox.RAW: _raw_param_generator,
     }
     for method in params["algo"].get("feature_map_approx_method", []):
         handler = handlers.get(method)
@@ -162,17 +164,19 @@ def _mapping_param_generator(params: dict):
 
 def _num_features_generator(df: pl.DataFrame, params: dict, **kwargs):
     method = kwargs.get("feature_map_approx_method")
-    if method == "raw":
+    if method == FeatureMapApprox.RAW:
         yield {"num_features": frames.n_features(df)}
         return
     for n in params["algo"].get("num_features", []):
         yield {"num_features": n}
 
 
-def _feature_map_generator(df: pl.DataFrame, params: dict):
+def feature_map_generator(df: pl.DataFrame, params: dict):
     df_diff = _get_diffs_if_needed(df, params)
     for method, kernel_params in _mapping_param_generator(params):
-        num_mappings_list = [1] if method == "raw" else params["algo"].get("num_mappings", [1])
+        num_mappings_list = (
+            [1] if method == FeatureMapApprox.RAW else params["algo"].get("num_mappings", [1])
+        )
         max_maps = max(num_mappings_list)
         signal_params = _process_heuristics(df, kernel_params)
         diff_params = _process_heuristics(df_diff, kernel_params)
@@ -197,19 +201,19 @@ def _feature_map_generator(df: pl.DataFrame, params: dict):
                 )
 
 
-def pca_feature_map_generator(df: pl.DataFrame, params: dict):
+def pcafeature_map_generator(df: pl.DataFrame, params: dict):
     gens = [
-        _feature_map_generator(frames.select_features(df, [col]), params)
+        feature_map_generator(frames.select_features(df, [col]), params)
         for col in frames.feature_columns(df)
     ]
     for objects in zip(*gens):
         yield list(objects)
 
 
-def _legacy_feature_map_generator(df: pl.DataFrame, params: dict):
+def legacy_feature_map_generator(df: pl.DataFrame, params: dict):
     """Generate kernel feature mappings for legacy regime detection.
 
-    Differs from ``_feature_map_generator`` by:
+    Differs from ``feature_map_generator`` by:
     1. Emitting only one mapping per parameter combination.
     2. Skipping first-order differences.
     """

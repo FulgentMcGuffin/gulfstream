@@ -1,14 +1,15 @@
-"""Hyperparameter selection for our in-house regime detection algorithm."""
+"""Hyperparameter selection for the gulfstream regime detection algorithm."""
 from collections import namedtuple
 from typing import Tuple
 import logging
 
+import numpy as np
 import polars as pl
 from sklearn.decomposition import PCA
 from statsmodels.tsa.stattools import acf
 
 from gulfstream.common import frames
-from gulfstream.common.results import CustomHyperparameterResults
+from gulfstream.common.results import HyperparameterResults
 from gulfstream.detection.time_index import (
     convert_original_index_to_dimred_index,
     convert_dimred_index_to_original_index,
@@ -23,13 +24,13 @@ SampleSizeConfig = namedtuple("SampleSizeConfig", ["min_sample_size"])
 DEFAULT_SAMPLESIZE_CONFIG = SampleSizeConfig(min_sample_size=50)
 
 
-def _select_custom_hyperparameters(
+def _select_hyperparameters(
     params: dict,
     date: str,
     df: pl.DataFrame = None,
     bkpt: int = None,
     **kwargs
-) -> CustomHyperparameterResults:
+) -> HyperparameterResults:
     """Select all necessary hyperparameters for the in-house regime
     detection algorithm specified in params.
 
@@ -51,18 +52,18 @@ def _select_custom_hyperparameters(
 
     Returns
     -------
-    CustomHyperparameterResults
+    HyperparameterResults
         Container containing the requested hyperparameters.
     """
-    res = CustomHyperparameterResults()
+    res = HyperparameterResults()
     test_params = params.get('test')
     if not test_params:
         raise KeyError("'test' must be specified.")
 
     handlers = {
-        'lag': _custom_select_lag,
-        'sample_size': _custom_select_sample_size,
-        'window': _custom_select_window
+        'lag': select_lag,
+        'sample_size': select_sample_size,
+        'window': select_window
     }
 
     lag_params = test_params.get('lag')
@@ -106,13 +107,13 @@ def _select_custom_hyperparameters(
     return res
 
 
-def select_custom_hyperparameters(
+def select_hyperparameters(
     params: dict,
     date: str,
     df: pl.DataFrame = None,
     bkpt: int = None,
     **kwargs
-) -> CustomHyperparameterResults:
+) -> HyperparameterResults:
     """Select all necessary hyperparameters for the in-house regime
     detection algorithm specified in params.
 
@@ -130,13 +131,13 @@ def select_custom_hyperparameters(
 
     Returns
     -------
-    CustomHyperparameterResults
+    HyperparameterResults
         Container containing the requested hyperparameters.
     """
-    return _select_custom_hyperparameters(params, date, df=df, bkpt=bkpt, **kwargs)
+    return _select_hyperparameters(params, date, df=df, bkpt=bkpt, **kwargs)
 
 
-def _custom_user_specified_lag(params: dict, **kwargs) -> dict:
+def user_specified_lag(params: dict, **kwargs) -> dict:
     """TODO: should add some input validation to this.
 
     Notes
@@ -151,7 +152,7 @@ def _custom_user_specified_lag(params: dict, **kwargs) -> dict:
     }
 
 
-def _custom_select_max_acf_drop_lag(
+def select_max_acf_drop_lag(
     df: pl.DataFrame,
     bkpt: int,
     params: dict,
@@ -239,12 +240,12 @@ def _custom_select_max_acf_drop_lag(
     }
 
 
-def _custom_select_lag(params: dict, date: str, df: pl.DataFrame = None,
+def select_lag(params: dict, date: str, df: pl.DataFrame = None,
                           bkpt: int = None, **kwargs) -> dict:
     """Dispatcher for lag selection."""
     handlers = {
-        'user_specified': _custom_user_specified_lag,
-        'acf_decay': _custom_select_max_acf_drop_lag
+        'user_specified': user_specified_lag,
+        'acf_decay': select_max_acf_drop_lag
     }
     test_params = params.get('test')
     if not test_params:
@@ -271,7 +272,7 @@ def _custom_select_lag(params: dict, date: str, df: pl.DataFrame = None,
     return res
 
 
-def _custom_user_specified_sample_size(
+def user_specified_sample_size(
     params: dict,
     window: int,
     **kwargs
@@ -296,7 +297,7 @@ def _custom_user_specified_sample_size(
     }
 
 
-def _custom_select_sample_size_by_proportion(
+def select_sample_size_by_proportion(
     params: dict,
     window: int,
     **kwargs
@@ -349,10 +350,10 @@ def _custom_select_sample_size_by_proportion(
     return {'method': 'proportional', 'sample_proportion': proportion, 'num_samples': sample_size}
 
 
-def _custom_select_sample_size(params: dict, **kwargs) -> dict:
+def select_sample_size(params: dict, **kwargs) -> dict:
     handlers = {
-        'user_specified': _custom_user_specified_sample_size,
-        'proportional': _custom_select_sample_size_by_proportion
+        'user_specified': user_specified_sample_size,
+        'proportional': select_sample_size_by_proportion
     }
     sample_params = params['test']['sample_size']
     method = sample_params.get('method')
@@ -364,42 +365,61 @@ def _custom_select_sample_size(params: dict, **kwargs) -> dict:
     return handler(params, **kwargs)
 
 
-def _custom_user_specified_window(params: dict, **kwargs) -> dict:
-    """Notes
-    -----
-    'window' should be in units of the time series being tested.
-    We will not do unit conversions for the user here since it
-    would be confusing to request a specific window size and get a different one.
-    """
+def user_specified_window(params: dict, **kwargs) -> dict:
+    """Return the user-specified window size (no unit conversion)."""
     return {
-        'method': 'user_specified',
-        'window': params['test']['window']['window'],
-        'window_days': params['test']['window']['window']
+        "method": "user_specified",
+        "window": params["test"]["window"]["window"],
+        "window_days": params["test"]["window"]["window"],
     }
 
 
-def _custom_select_window(params: dict, **kwargs) -> dict:
-    """Dispatcher for window size selection.
-    Currently only supports 'user_specified'.
+def ess_window(params: dict, *, df: pl.DataFrame | None = None, **kwargs) -> dict:
+    """Effective-sample-size heuristic for the MMD window.
 
-    Returns
-    -------
-    dict
-        Contains 'method' and 'window' (int).
+    Uses a simple AR(1)-style ESS estimate on the first feature (or PCA score
+    when ``df`` is provided): ``ess ≈ n * (1-ρ)/(1+ρ)``, then takes a fraction
+    of ESS as the half-window on each side of a candidate breakpoint.
     """
+    window_cfg = params["test"]["window"]
+    frac = float(window_cfg.get("ess_fraction", 0.25))
+    min_window = int(window_cfg.get("min_window", 20))
+    max_window = int(window_cfg.get("max_window", 120))
+    if df is None or df.height < 10:
+        w = max(min_window, min(max_window, 40))
+        return {"method": "ess", "window": w, "window_days": w, "ess": None}
+
+    x = frames.to_numpy(frames.select_features(df, frames.feature_columns(df)[:1])).ravel()
+    x = x - np.nanmean(x)
+    if len(x) < 3 or np.nanstd(x) == 0:
+        rho = 0.0
+    else:
+        rho = float(np.corrcoef(x[:-1], x[1:])[0, 1])
+        if not np.isfinite(rho):
+            rho = 0.0
+        rho = float(np.clip(rho, -0.99, 0.99))
+    ess = len(x) * (1.0 - rho) / (1.0 + rho)
+    w = int(round(frac * ess / 2.0))
+    w = max(min_window, min(max_window, w))
+    return {"method": "ess", "window": w, "window_days": w, "ess": float(ess), "rho": rho}
+
+
+def select_window(params: dict, **kwargs) -> dict:
+    """Dispatcher for window size selection."""
     handlers = {
-        'user_specified': _custom_user_specified_window
+        "user_specified": user_specified_window,
+        "ess": ess_window,
     }
-    method = params['test']['window'].get('method')
+    method = params["test"]["window"].get("method")
     if not method:
         raise KeyError("'method' must be specified.")
     handler = handlers.get(method)
     if not handler:
-        raise ValueError(f"Unknown method {method}.")
-    return handler(params)
+        raise ValueError(f"Unknown window method {method}.")
+    return handler(params, **kwargs)
 
 
-def _custom_asked_for_acf_lag_selection(params: dict) -> bool:
+def asked_for_acf_lag_selection(params: dict) -> bool:
     if not params.get('test'):
         raise KeyError("'test' must be specified.")
     lag = params['test'].get('lag')
@@ -412,7 +432,7 @@ def _custom_asked_for_acf_lag_selection(params: dict) -> bool:
     return False
 
 
-def _custom_calculate_pca_for_lag_selection(df: pl.DataFrame) -> pl.DataFrame:
+def calculate_pca_for_lag_selection(df: pl.DataFrame) -> pl.DataFrame:
     """Calculates PCA for use in lag hyperparameter selection with ACF decay.
 
     Parameters

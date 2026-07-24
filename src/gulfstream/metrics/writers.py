@@ -10,7 +10,7 @@ from gulfstream.common.results import SegmentResults
 logger = logging.getLogger(__name__)
 
 
-def _write_results_header(params: dict, results_writer) -> dict:
+def write_results_header(params: dict, results_writer) -> dict:
     """Write a Parameter sheet header; return a blank template row.
 
     ``results_writer`` is a pandas ``ExcelWriter`` (Excel boundary).
@@ -29,7 +29,7 @@ def _write_results_header(params: dict, results_writer) -> dict:
     return template
 
 
-def _report_regime_statistics(
+def report_regime_statistics(
     df: pl.DataFrame,
     params: dict,
     proc_res: SegmentResults,
@@ -43,7 +43,7 @@ def _report_regime_statistics(
     )
 
 
-def _report_performance(
+def report_performance(
     df: pl.DataFrame,
     params: dict,
     proc_res: SegmentResults,

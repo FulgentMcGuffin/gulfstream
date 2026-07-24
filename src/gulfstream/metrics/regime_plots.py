@@ -29,7 +29,7 @@ from gulfstream.detection import time_index as bkpt_timeindexing_conversions
 logger = logging.getLogger(__name__)
 
 
-def _visualize_market_regimes(
+def plot_market_regimes(
     df: pl.DataFrame,
     regimes_df: pl.DataFrame,
     title: str = "",
@@ -154,7 +154,7 @@ def _visualize_market_regimes(
         if not img_dir:
             raise ValueError("img_dir required when writing plots")
         os.makedirs(img_dir, exist_ok=True)
-        path = os.path.join(img_dir, utils._img_gallery_filename(name).lstrip("/"))
+        path = os.path.join(img_dir, utils.img_gallery_filename(name).lstrip("/"))
     plotting.emit_ggplot(
         plot,
         path=path,
@@ -173,14 +173,14 @@ def produce_all_regime_visualization_tools(
     """Core-path regime plot."""
     hierarchy = res.hierarchy or {b: 1 for b in res.bkpts}
     date_index = frames.dates_series(df).to_list()
-    regimes_df = bkpt_timeindexing_conversions._get_regime_intervals(hierarchy, date_index)
+    regimes_df = bkpt_timeindexing_conversions.get_regime_intervals(hierarchy, date_index)
     features = params.get("metrics", {}).get("features_to_plot") or []
     if not features:
         feat_cols = frames.feature_columns(df)
         features = feat_cols[: min(3, len(feat_cols))]
     mode = params.get("metrics", {}).get("mode", "display")
     img_dir = params.get("metrics", {}).get("image_dir") or params.get("metrics", {}).get("dir")
-    _visualize_market_regimes(
+    plot_market_regimes(
         df,
         regimes_df,
         title=f"test_{params.get('test_num', 0)}_{params.get('test', {}).get('choice', '')}",

@@ -7,7 +7,6 @@ from typing import Literal, Union
 
 import numpy as np
 import polars as pl
-import yaml
 from sklearn.metrics import pairwise_distances
 
 from gulfstream.common import frames
@@ -24,12 +23,15 @@ MATRIX_PREFIX = "31"
 
 
 def read_config_yaml(filename: str, img_dir: str, log_dir: str) -> dict:
-    """Read YAML config, substituting ${LOG_DIR} and ${IMG_DIR}."""
-    with open(filename, encoding="utf-8") as f:
-        config_text = f.read()
-    config_text = config_text.replace("${LOG_DIR}", log_dir)
-    config_text = config_text.replace("${IMG_DIR}", img_dir)
-    return yaml.safe_load(config_text)
+    """Read and validate YAML config; return a plain params dict.
+
+    Prefer :func:`gulfstream.common.config.load_config` when you need the
+    typed ``Config`` object. This helper keeps the historical dict-returning
+    signature used by pipelines and the CLI.
+    """
+    from gulfstream.common.config import load_config
+
+    return load_config(filename, img_dir=img_dir, log_dir=log_dir).to_params()
 
 
 def _calculate_bandwidth(
@@ -108,7 +110,7 @@ def _convert_breakpoints_to_labels(length: int, bk: list) -> list:
     return list(labels)
 
 
-def _convert_bkpts_to_labels(bkpts: list[int], length: int) -> list[int]:
+def convert_bkpts_to_labels(bkpts: list[int], length: int) -> list[int]:
     labels = np.zeros(length, dtype=int)
     edges = [0] + sorted(b for b in bkpts if 0 < b < length) + [length]
     for i in range(len(edges) - 1):
@@ -116,7 +118,7 @@ def _convert_bkpts_to_labels(bkpts: list[int], length: int) -> list[int]:
     return labels.tolist()
 
 
-def _img_gallery_filename(name: str, **kwargs) -> str:
+def img_gallery_filename(name: str, **kwargs) -> str:
     lookup = {
         "bkpt_tree": f"/01_proc_bkpt_tree{IMG_EXT}",
         "regime_plot": f"/02_regime_plot{IMG_EXT}",
@@ -147,7 +149,7 @@ def _img_gallery_filename(name: str, **kwargs) -> str:
     return f"/{name}{IMG_EXT}"
 
 
-def _generate_gallery(image_dir: str) -> None:
+def generate_gallery(image_dir: str) -> None:
     """Write a simple HTML gallery of PNGs in image_dir."""
     if not image_dir or not os.path.isdir(image_dir):
         return

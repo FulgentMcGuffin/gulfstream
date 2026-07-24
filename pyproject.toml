@@ -21,6 +21,7 @@ dependencies = [
     "plotnine>=0.15.7",
     "polars>=1.43.0",
     "pyarrow>=25.0.0",
+    "pydantic>=2.13.4",
     "pytorch-forecasting>=1.0",
     "pytorch-optimizer>=3.10.1",
     "pyyaml>=6.0",

@@ -11,11 +11,12 @@ from mcp_data.backends.duckdb_backend import DuckDBSource
 from mcp_data.backends.sqlite_backend import SQLiteSource
 
 from gulfstream.common import frames
+from gulfstream.common.options import SourceType, values as option_values
 from gulfstream.data import feature_generation, synth
 
 logger = logging.getLogger(__name__)
 
-SUPPORTED_TYPES = ("synthetic", "faker", "parquet", "duckdb", "sqlite", "csv")
+SUPPORTED_TYPES = tuple(option_values(SourceType))
 
 
 def load_source_config(path: str | Path) -> dict:

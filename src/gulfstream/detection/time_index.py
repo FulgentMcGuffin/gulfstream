@@ -10,7 +10,7 @@ from gulfstream.common import frames
 from gulfstream.common.results import AlgoResults, SegmentResults
 
 
-def _get_strs_from_df_index(df: pl.DataFrame) -> list[str]:
+def get_strs_from_df_index(df: pl.DataFrame) -> list[str]:
     """Return string labels for each row date."""
     return frames.date_strs(df)
 
@@ -28,7 +28,7 @@ def _get_date_labels_for_plots(
     newlines: bool = False,
 ) -> list[str]:
     """Human-readable regime date labels for legends."""
-    dates = _get_strs_from_df_index(df)
+    dates = get_strs_from_df_index(df)
     n = len(dates)
     edges = [0] + sorted(b for b in bkpts if 0 < b < n) + [n]
     sep = "\n" if newlines else " → "
@@ -41,7 +41,7 @@ def _get_date_labels_for_plots(
     return labels
 
 
-def _get_regime_intervals(bkpt_hierarchy: dict, index) -> pl.DataFrame:
+def get_regime_intervals(bkpt_hierarchy: dict, index) -> pl.DataFrame:
     """Build Start/End/Regime dataframe from breakpoint hierarchy keys."""
     n = len(index)
     bkpts = sorted(int(b) for b in bkpt_hierarchy.keys() if 0 < int(b) < n)
@@ -79,7 +79,7 @@ def get_regime_intervals_legacy(labels: list[int], index) -> pl.DataFrame:
     return pl.DataFrame(rows)
 
 
-def _convert_results(
+def convert_results(
     res: SegmentResults | AlgoResults,
     length: int,
 ) -> SegmentResults | AlgoResults:
@@ -98,9 +98,9 @@ def _convert_results(
         new_hier = {b: res.hierarchy[b] for b in new_bkpts if b in res.hierarchy}
         labels = res.labels
         if labels is not None and len(labels) != length:
-            labels = _bkpts_to_labels(new_bkpts, length)
+            labels = bkpts_to_labels(new_bkpts, length)
         elif labels is None:
-            labels = _bkpts_to_labels(new_bkpts, length)
+            labels = bkpts_to_labels(new_bkpts, length)
         return SegmentResults(
             bkpts=new_bkpts,
             invalid_bkpts=new_invalid,
@@ -112,7 +112,7 @@ def _convert_results(
     new_bkpts = _clamp(list(res.bkpts))
     return AlgoResults(
         bkpts=new_bkpts,
-        labels=_bkpts_to_labels(new_bkpts, length),
+        labels=bkpts_to_labels(new_bkpts, length),
         params=res.params,
     )
 
@@ -152,7 +152,7 @@ def convert_original_index_to_dimred_index(idx: int, params: dict) -> int:
     return int(idx)
 
 
-def _bkpts_to_labels(bkpts: list[int], length: int) -> list[int]:
+def bkpts_to_labels(bkpts: list[int], length: int) -> list[int]:
     labels = np.zeros(length, dtype=int)
     edges = [0] + sorted(b for b in bkpts if 0 < b < length) + [length]
     for i in range(len(edges) - 1):
@@ -167,7 +167,7 @@ def regimes_df_to_bkpts(
     """Convert a seed regimes_df into breakpoint indices and hierarchy dict.
 
     Empty / None regimes_df → no breakpoints.
-    Uses ``End`` of all but the last row as breakpoint dates (represent semantics).
+    Uses ``End`` of all but the last row as breakpoint dates.
     """
     empty = (
         regimes_df is None

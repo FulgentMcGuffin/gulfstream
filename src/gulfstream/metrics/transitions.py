@@ -98,7 +98,7 @@ def _draw_transition(
     path = None
     if img_dir:
         os.makedirs(img_dir, exist_ok=True)
-        path = os.path.join(img_dir, utils._img_gallery_filename(gallery_key).lstrip("/"))
+        path = os.path.join(img_dir, utils.img_gallery_filename(gallery_key).lstrip("/"))
     plotting.emit_ggplot(
         plot, path=path, mode=mode, width=6, height=5, log_label="transition matrix"
     )

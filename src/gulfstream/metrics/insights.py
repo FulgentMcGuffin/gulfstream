@@ -38,7 +38,7 @@ def _select_feature_columns(df: pl.DataFrame, params: dict) -> list[str]:
     return pool[:n_top]
 
 
-def _draw_error_heatmaps(
+def draw_error_heatmaps(
     loss_matrix: np.ndarray,
     df: pl.DataFrame,
     bkpts: list[int],
@@ -68,7 +68,7 @@ def _draw_error_heatmaps(
     if img_dir:
         os.makedirs(img_dir, exist_ok=True)
         path = os.path.join(
-            img_dir, utils._img_gallery_filename(gallery_filename).lstrip("/")
+            img_dir, utils.img_gallery_filename(gallery_filename).lstrip("/")
         )
     plotting.emit_ggplot(
         plot,
@@ -142,7 +142,7 @@ def _draw_matrix(
     if img_dir:
         os.makedirs(img_dir, exist_ok=True)
         path = os.path.join(
-            img_dir, utils._img_gallery_filename(gallery_key).lstrip("/")
+            img_dir, utils.img_gallery_filename(gallery_key).lstrip("/")
         )
     plotting.emit_ggplot(
         plot, path=path, mode=mode, width=6, height=5, log_label="matrix"
@@ -169,7 +169,7 @@ def _draw_clusters(
     if img_dir:
         os.makedirs(img_dir, exist_ok=True)
         path = os.path.join(
-            img_dir, utils._img_gallery_filename(gallery_key).lstrip("/")
+            img_dir, utils.img_gallery_filename(gallery_key).lstrip("/")
         )
     plotting.emit_ggplot(
         plot, path=path, mode=mode, width=6, height=5, log_label="clusters"
@@ -187,14 +187,14 @@ def produce_all_post_information_visualization_tools(
     img_dir = metrics.get("image_dir") or metrics.get("dir")
     bkpts = list(res.bkpts or [])
 
-    loss = evaluation_tools._avg_features_loss(df, bkpts)
+    loss = evaluation_tools.avg_features_loss(df, bkpts)
     n_show = min(int(metrics.get("num_features") or 10), loss.shape[0])
     order = np.argsort(-loss.sum(axis=1))[:n_show]
     feat_cols = frames.feature_columns(df)
     feature_names = [str(feat_cols[i]) for i in order]
     loss_top = loss[order, :]
 
-    _draw_error_heatmaps(
+    draw_error_heatmaps(
         loss_top,
         df,
         bkpts,
@@ -207,7 +207,7 @@ def produce_all_post_information_visualization_tools(
     )
     if loss_top.shape[1] > 0:
         aggregated = loss_top.mean(axis=0, keepdims=True)
-        _draw_error_heatmaps(
+        draw_error_heatmaps(
             aggregated,
             df,
             bkpts,

@@ -26,7 +26,7 @@ def _local_loss(df: pl.DataFrame, start: int, end: int) -> float:
     return float(np.linalg.norm(segment - mean) ** 2)
 
 
-def _avg_features_loss(df: pl.DataFrame, bkpts: list[int]) -> np.ndarray:
+def avg_features_loss(df: pl.DataFrame, bkpts: list[int]) -> np.ndarray:
     """Average daily per-feature L2 to regime mean.
 
     Returns
@@ -116,10 +116,70 @@ def recovery_rate(
     """Fraction of baseline breakpoints recovered within ``tolerance`` days."""
     if not baseline_bkpts:
         return 1.0
-    mapping = _match(baseline_bkpts, other_bkpts)
+    mapping = match_breakpoints(baseline_bkpts, other_bkpts)
     hits = sum(
         1
         for _, (matched, dist) in mapping.items()
         if matched is not None and dist <= tolerance
     )
     return hits / len(baseline_bkpts)
+
+
+def breakpoint_precision_recall_f1(
+    true_bkpts: list[int],
+    pred_bkpts: list[int],
+    *,
+    tolerance: int = 5,
+) -> dict[str, float]:
+    """Breakpoint precision / recall / F1 at a matching tolerance."""
+    true_bkpts = list(true_bkpts)
+    pred_bkpts = list(pred_bkpts)
+    if not true_bkpts and not pred_bkpts:
+        return {"precision": 1.0, "recall": 1.0, "f1": 1.0}
+    if not pred_bkpts:
+        return {"precision": 0.0, "recall": 0.0, "f1": 0.0}
+    if not true_bkpts:
+        return {"precision": 0.0, "recall": 1.0 if not pred_bkpts else 0.0, "f1": 0.0}
+
+    mapping = match_breakpoints(true_bkpts, pred_bkpts)
+    tp = sum(
+        1
+        for _, (matched, dist) in mapping.items()
+        if matched is not None and dist <= tolerance
+    )
+    precision = tp / len(pred_bkpts)
+    recall = tp / len(true_bkpts)
+    f1 = 0.0 if precision + recall == 0 else 2 * precision * recall / (precision + recall)
+    return {"precision": float(precision), "recall": float(recall), "f1": float(f1)}
+
+
+def covering_metric(
+    true_bkpts: list[int],
+    pred_bkpts: list[int],
+    length: int,
+) -> float:
+    """Segmentation covering score in [0, 1] (Arbelaez et al. / ruptures-style).
+
+    For each true regime segment, weight the best-overlapping predicted segment
+    by the true segment length, then average over the series.
+    """
+    if length <= 0:
+        return 1.0
+    true_edges = _regime_edges(true_bkpts, length)
+    pred_edges = _regime_edges(pred_bkpts, length)
+    true_segs = list(zip(true_edges[:-1], true_edges[1:]))
+    pred_segs = list(zip(pred_edges[:-1], pred_edges[1:]))
+    score = 0.0
+    for ts, te in true_segs:
+        tlen = te - ts
+        if tlen <= 0:
+            continue
+        best = 0.0
+        for ps, pe in pred_segs:
+            overlap = max(0, min(te, pe) - max(ts, ps))
+            best = max(best, overlap / tlen)
+        score += tlen * best
+    return float(score / length)
+
+
+match_breakpoints = _match

@@ -14,7 +14,7 @@ from gulfstream.dimred import dispatcher as dimension_reduction
 from gulfstream.features import names as feature_name_resolution
 from gulfstream.common import frames
 from gulfstream.detection import hyperparams as custom_hyperparameter_selection
-from gulfstream import validation as input_validation
+from gulfstream.common.config import coerce_params
 from gulfstream.features import kernel_map as kernel_feature_mapping
 from gulfstream.common import logging as logging_config
 from gulfstream.detection import postprocess as output_postprocessing
@@ -25,14 +25,15 @@ from gulfstream.pipelines._shared import (
     _initialize_results_writer_and_dir,
     _initialize_test_sub_dir,
     _log_missing_columns,
-    _produce_all_metrics,
+    produce_all_metrics,
 )
+from gulfstream.pipelines.single_pass import run_single_segmentation_pair
 
 logger = logging.getLogger(__name__)
 
 
 def _handle_full_feature_map_case(df: pl.DataFrame, params: dict):
-    for res in kernel_feature_mapping._feature_map_generator(df, params):
+    for res in kernel_feature_mapping.feature_map_generator(df, params):
         mapped_dfs = res.dfs
         mapped_df_diffs = res.df_diffs
         mapping_params = {
@@ -49,7 +50,7 @@ def _handle_full_feature_map_case(df: pl.DataFrame, params: dict):
 
 
 def _handle_pca_feature_map_case(df: pl.DataFrame, params: dict):
-    for res_list in kernel_feature_mapping.pca_feature_map_generator(df, params):
+    for res_list in kernel_feature_mapping.pcafeature_map_generator(df, params):
         mapped_dfs = [res.dfs for res in res_list]
         mapped_df_diffs = [res.df_diffs for res in res_list]
         mapping_params = []
@@ -65,7 +66,7 @@ def _handle_pca_feature_map_case(df: pl.DataFrame, params: dict):
             if res.diff_kernel_params:
                 this_pc_params["diff_kernel_params"] = res.diff_kernel_params
             mapping_params.append(this_pc_params)
-        mapping_params = output_postprocessing._combine_params(mapping_params)
+        mapping_params = output_postprocessing.combine_params(mapping_params)
         yield mapping_params, mapped_dfs, mapped_df_diffs
 
 
@@ -105,13 +106,13 @@ def _process_cases(
         logger.info("Case %s not needed. Skipping.", case_name)
         return row, test_num
 
-    dates = bkpt_timeindexing_conversions._get_strs_from_df_index(df)
+    dates = bkpt_timeindexing_conversions.get_strs_from_df_index(df)
     dfs = get_dfs_for_case(df_dimred, case_name)
 
     for items in handler(df_dimred, params):
-        for ruptures_params in bkpt_algo._kernel_ruptures_generator(dfs, params):
-            for test_params in bkpt_stat_tests._test_param_combos(params):
-                for late_algo_params in bkpt_algo._late_algo_param_combos(params):
+        for ruptures_params in bkpt_algo.kernel_ruptures_generator(dfs, params):
+            for test_params in bkpt_stat_tests.test_param_combos(params):
+                for late_algo_params in bkpt_algo.late_algo_param_combos(params):
                     case_params = {
                         "test": test_params.copy(),
                         "algo": algo_params.copy(),
@@ -127,7 +128,7 @@ def _process_cases(
                     logger.info("Starting to test breakpoints (test_num=%s).", test_num)
                     for i, (mapped_dfs, mapped_df_diffs) in enumerate(zip(*df_grids)):
                         case_params["algo"]["ruptures_kernel_params"] = ruptures_params[i]
-                        raw_res = bkpt_algo._find_and_test_bkpts(
+                        raw_res = bkpt_algo.find_and_test_bkpts(
                             dfs[i],
                             mapped_dfs,
                             case_params,
@@ -137,17 +138,17 @@ def _process_cases(
                         )
                         results.append(raw_res)
 
-                    combined = output_postprocessing._combine_results(df_dimred.height, results)
-                    combined_converted = bkpt_timeindexing_conversions._convert_results(
+                    combined = output_postprocessing.combine_results(df_dimred.height, results)
+                    combined_converted = bkpt_timeindexing_conversions.convert_results(
                         combined, df.height
                     )
                     case_algo_params = case_params["algo"]
-                    for processing_params in output_postprocessing._post_processing_params_generator(
+                    for processing_params in output_postprocessing.post_processing_params_generator(
                         case_params["test"]["choice"], params
                     ):
                         case_params["algo"] = case_algo_params.copy()
                         case_params["algo"].update(processing_params)
-                        processed = output_postprocessing._post_process(
+                        processed = output_postprocessing.post_process(
                             res=combined,
                             processing_params=processing_params,
                             params=case_params,
@@ -160,11 +161,11 @@ def _process_cases(
                         case_params["metrics"]["image_dir"] = _initialize_test_sub_dir(
                             case_params, misc_params["image_dir"]
                         )
-                        results_writers._report_regime_statistics(
+                        results_writers.report_regime_statistics(
                             df, case_params, processed, combined_converted
                         )
                         if case_params["metrics"].get("developer_mode", False):
-                            row = results_writers._report_performance(
+                            row = results_writers.report_performance(
                                 df, case_params, processed, combined_converted
                             )
                         test_num += 1
@@ -173,21 +174,21 @@ def _process_cases(
                         case_params["robustness"] = params.get("robustness") or {}
                         case_params["stability"] = params.get("stability") or {}
                         case_params["_pipeline_params"] = params
-                        _produce_all_metrics(df, processed, case_params)
+                        produce_all_metrics(df, processed, case_params)
     return row, test_num
 
 
 def _main_driver(df: pl.DataFrame, params: dict, misc_params: dict):
-    if custom_hyperparameter_selection._custom_asked_for_acf_lag_selection(params):
-        df_pca = custom_hyperparameter_selection._custom_calculate_pca_for_lag_selection(df)
+    if custom_hyperparameter_selection.asked_for_acf_lag_selection(params):
+        df_pca = custom_hyperparameter_selection.calculate_pca_for_lag_selection(df)
     else:
         df_pca = None
 
     test_num = misc_params["test_num"]
     row = misc_params["row"]
-    for res in dimension_reduction._dimred_generator(df, params):
+    for res in dimension_reduction.dimred_generator(df, params):
         df_dimred = res.df
-        algo_params = dimension_reduction._get_dimred_param_dict(res)
+        algo_params = dimension_reduction.get_dimred_param_dict(res)
         for case_name in CASE_HANDLERS:
             algo_params["recursive_method"] = case_name
             try:
@@ -201,17 +202,25 @@ def _main_driver(df: pl.DataFrame, params: dict, misc_params: dict):
     return test_num, row
 
 
-def evaluate_regimes_with_user_specified_df(df: pl.DataFrame, params: dict) -> None:
-    """Run the custom regime detection algorithm on a user-supplied feature DF."""
-    if not input_validation._valid_params_for_user_specified_df(params):
-        logger.error("Invalid parameters; aborting.")
-        return
+def run_graph1(df: pl.DataFrame, params: dict) -> SegmentResults | None:
+    """Run Graph 1 on a user-supplied feature DF; return the last segmentation.
+
+    When the algo grid collapses to a single combo, the Hamilton single-pass
+    path is preferred for the returned result; the full grid driver still
+    writes artifacts for every combo.
+    """
+    try:
+        params = coerce_params(params)
+    except Exception:
+        logger.exception("Invalid parameters; aborting.")
+        return None
+    last_result: SegmentResults | None = None
     with logging_config.LoggingContext(params["log"]["dir"], log_level=params["log"]["level"]):
         try:
             image_dir, results_writer, template = _initialize_results_writer_and_dir(params)
         except Exception:
             logger.exception("Failed to initialize results writer and directory.")
-            return
+            return None
 
         feat_cols = set(frames.feature_columns(df))
         if isinstance(params["metrics"].get("explainability_features"), dict):
@@ -224,6 +233,12 @@ def evaluate_regimes_with_user_specified_df(df: pl.DataFrame, params: dict) -> N
             missing = [f for f in exp_features if f not in feat_cols]
             if missing:
                 logger.warning("Missing explainability features: %s", ", ".join(missing))
+
+        # Prefer Hamilton single-pass for the returned result (deduped core).
+        try:
+            _unproc, last_result = run_single_segmentation_pair(df, params)
+        except Exception:
+            logger.exception("Hamilton single-pass failed; continuing with grid driver.")
 
         misc_params = {
             "test_num": 0,
@@ -238,5 +253,6 @@ def evaluate_regimes_with_user_specified_df(df: pl.DataFrame, params: dict) -> N
         if results_writer is not None:
             results_writer.close()
         if image_dir is not None:
-            utils._generate_gallery(image_dir)
+            utils.generate_gallery(image_dir)
         logger.info("Done. Outputs in %s", image_dir)
+    return last_result

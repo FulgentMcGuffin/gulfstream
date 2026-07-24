@@ -46,7 +46,7 @@ def _initialize_results_writer_and_dir(params: dict):
         os.makedirs(image_dir, exist_ok=True)
         results_sheet = os.path.join(image_dir, "results.xlsx")
         results_writer = pd.ExcelWriter(results_sheet, engine="openpyxl")
-        template = results_writers._write_results_header(params, results_writer)
+        template = results_writers.write_results_header(params, results_writer)
     else:
         image_dir = None
         results_writer = None
@@ -63,7 +63,7 @@ def _initialize_test_sub_dir(params: dict, file_dir: str | None) -> str | None:
     return None
 
 
-def _produce_all_metrics(df: pl.DataFrame, res: SegmentResults, params: dict) -> None:
+def produce_all_metrics(df: pl.DataFrame, res: SegmentResults, params: dict) -> None:
     if not params["metrics"].get("plot"):
         return
     res = robustness.evaluate_robustness(df, params, res)
@@ -73,6 +73,6 @@ def _produce_all_metrics(df: pl.DataFrame, res: SegmentResults, params: dict) ->
     post_information_visualization.produce_all_post_information_visualization_tools(
         df, params, res
     )
-    bkpt_trees._build_and_plot_bkpt_trees(df, params, res, unproc_res=None)
-    explainability_tools._produce_all_explainability_tools(df, params, res)
+    bkpt_trees.build_and_plot_bkpt_trees(df, params, res, unproc_res=None)
+    explainability_tools.produce_all_explainability_tools(df, params, res)
     transition_matrices.produce_transition_matrices(df, params)

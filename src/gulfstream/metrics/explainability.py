@@ -21,7 +21,7 @@ from gulfstream.features import names as feature_name_resolution
 from gulfstream.common import frames
 from gulfstream.common import utils
 from gulfstream.common.results import SegmentResults
-from gulfstream.detection.time_index import _bkpts_to_labels
+from gulfstream.detection.time_index import bkpts_to_labels
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +47,7 @@ def _get_explainability_df(
 def _regime_labels(df: pl.DataFrame, res: SegmentResults) -> np.ndarray:
     if res.labels is not None and len(res.labels) == df.height:
         return np.asarray(res.labels, dtype=int)
-    return np.asarray(_bkpts_to_labels(list(res.bkpts or []), df.height), dtype=int)
+    return np.asarray(bkpts_to_labels(list(res.bkpts or []), df.height), dtype=int)
 
 
 def _scale_features(X: np.ndarray, feature_names: list[str], bps_decimals: bool) -> np.ndarray:
@@ -121,7 +121,7 @@ def _save_tree_plot(
     fig.tight_layout()
     if mode in ("write", "display_and_write") and img_dir:
         os.makedirs(img_dir, exist_ok=True)
-        path = os.path.join(img_dir, utils._img_gallery_filename(gallery_key).lstrip("/"))
+        path = os.path.join(img_dir, utils.img_gallery_filename(gallery_key).lstrip("/"))
         fig.savefig(path, dpi=120)
         logger.info("Saved explainability tree to %s", path)
     plt.close(fig)
@@ -133,14 +133,14 @@ def _save_tree_pickle(
     if not img_dir:
         return None
     os.makedirs(img_dir, exist_ok=True)
-    path = os.path.join(img_dir, utils._img_gallery_filename(gallery_key).lstrip("/"))
+    path = os.path.join(img_dir, utils.img_gallery_filename(gallery_key).lstrip("/"))
     with open(path, "wb") as f:
         pickle.dump(clf, f)
     logger.info("Pickled tree to %s", path)
     return path
 
 
-def _produce_all_explainability_tools(
+def produce_all_explainability_tools(
     df: pl.DataFrame,
     params: dict,
     res: SegmentResults,

@@ -105,9 +105,9 @@ flowchart TD
   cli --> loadSrc["load_features_from_source_yaml --source-config"]
   loadCfg --> mode{"--mode / retrain present?"}
   loadSrc --> mode
-  mode -->|graph1| g1["evaluate_regimes_with_user_specified_df"]
-  mode -->|graph2| g2["targeted_retrain_with_user_specified_df"]
-  mode -->|legacy| leg["legacy_evaluate_regimes_with_user_specified_df"]
+  mode -->|graph1| g1["run_graph1"]
+  mode -->|graph2| g2["run_graph2"]
+  mode -->|legacy| leg["run_legacy"]
   g1 --> out1["outputs/metrics + gallery"]
   g2 --> out2["outputs/metrics + retrain heatmaps + gallery"]
   leg --> out3["outputs/metrics + regime plot"]
@@ -129,7 +129,7 @@ flowchart TB
     rff --> rupt["Ruptures candidates"]
     rupt --> mmd["MMD statistical tests"]
     mmd --> post["Post-process majority vote / min length"]
-    post --> res["CustomAlgoResults"]
+    post --> res["SegmentResults"]
   end
 
   subgraph stageB ["Stage B — Metrics and diagnostics"]
@@ -145,7 +145,7 @@ flowchart TB
 
 | Stage | What it does | Why it exists |
 |-------|----------------|---------------|
-| **A — Core detection** | Reduce dimensions, map to a kernel feature space, propose breakpoints with ruptures, accept/reject with MMD, then clean segments. | Produce a single segmentation (`bkpts`, labels, hierarchy, stats) that is the baseline for everything else. |
+| **A — Core detection** | Reduce dimensions, map to a kernel feature space, propose breakpoints with ruptures (PELT / Binseg / BottomUp), accept/reject with MMD or energy distance, then clean segments. | Produce a single segmentation (`bkpts`, labels, hierarchy, stats) that is the baseline for everything else. |
 | **B — Metrics** | Plot regimes, feature×regime L2 loss, regime distances/clusters, hierarchy trees, decision-tree explanations, transition probabilities; optionally perturb HPs (robustness) or drop sources/tenors/windows (stability). | Turn raw breakpoints into interpretable, stress-tested outputs under `outputs/metrics/`. |
 
 Stage B is controlled by `metrics.plot` and by `robustness.enabled` / `stability.enabled` in YAML. `config/full_graph1.yaml` turns the deferred stages on; `default_core.yaml` keeps them off for faster smoke runs.
@@ -177,7 +177,7 @@ In **interactive mode** (`retrain.interactive: true`), the same steps run, but y
 | Slice detect | Reuse Graph 1 core on `df.iloc[start:end][features]` only. |
 | Merge | Attach the slice hierarchy with local indices, shift bkpts/stats to global time, then loop. |
 
-Final results are built from the **merged** `processed_bkpts`, not the seed list. The driver then writes optional Excel/report output, runs `_produce_all_metrics`, and generates an HTML gallery.
+Final results are built from the **merged** `processed_bkpts`, not the seed list. The driver then writes optional Excel/report output, runs `produce_all_metrics`, and generates an HTML gallery.
 
 ---
 
@@ -187,7 +187,7 @@ Final results are built from the **merged** `processed_bkpts`, not the seed list
 flowchart LR
   g1core["Graph 1 core path"] --> single["single_run.run_single_segmentation"]
   single --> g2loop["Graph 2 outer loop"]
-  g1full["Graph 1 full driver"] --> metrics["_produce_all_metrics"]
+  g1full["Graph 1 full driver"] --> metrics["produce_all_metrics"]
   g2loop --> metrics
 ```
 
@@ -205,17 +205,17 @@ gulfstream/
 │   ├── legacy/             # legacy_*.yaml
 │   └── sources/            # synthetic, duckdb, parquet, csv, ...
 ├── src/gulfstream/
+│   ├── api.py              # Public programmatic façade
 │   ├── cli.py              # Entry: load configs → dispatch mode
-│   ├── common/             # frames, results, utils, logging, plotting (plotnine)
+│   ├── common/             # frames, results, utils, options (enums), config (pydantic)
 │   ├── data/               # source_loader, synth, feature_generation
-│   ├── pipelines/          # graph1, graph2, legacy, single_pass, _shared
+│   ├── pipelines/          # graph1, graph2/, legacy, single_pass, _shared
 │   │   └── hamilton/       # Apache Hamilton DAGs (segmentation, load_features)
 │   ├── detection/          # algorithm, stat_tests, time_index, trees, hyperparams, postprocess
-│   ├── dimred/             # dispatcher, classical/*, model_based, density
+│   ├── dimred/             # dispatcher, classical/*, model_based/, density
 │   ├── features/           # kernel_map, names
 │   ├── metrics/            # evaluation, plots, insights, explainability, robustness, ...
-│   ├── legacy/detectors/   # kmeans, hmm, hdbscan, optics, msar, ruptures, ...
-│   └── validation/         # flattened YAML schema checks
+│   └── legacy/detectors/   # kmeans, hmm, hdbscan, optics, msar, ruptures, ...
 └── outputs/
     ├── metrics/            # PNGs, Excel, gallery.html
     └── logs/
@@ -225,20 +225,80 @@ gulfstream/
 
 | Layer | Responsibility |
 |-------|----------------|
-| **CLI** | Parse `--config`, `--source-config`, `--mode`; materialize `${IMG_DIR}` / `${LOG_DIR}`; call Graph 1, Graph 2, or legacy. |
+| **API / CLI** | `gulfstream.api` for programmatic use; CLI parses `--config`, `--source-config`, `--mode` and materializes `${IMG_DIR}` / `${LOG_DIR}`. |
+| **Config** | Pydantic `Config` models + `StrEnum` options (`common/config.py`, `common/options.py`). YAML keys unchanged. |
 | **Data** | Build a dated feature matrix from DuckDB/SQLite, parquet/CSV, or synthetic/faker generators. No detection logic. |
-| **Pipelines** | Mode orchestrators (`graph1` / `graph2` / `legacy`) plus shared helpers and `single_pass`. The linear segmentation core and CLI feature load run as [Apache Hamilton](https://hamilton.apache.org/) DAGs (`pipelines/hamilton/`). |
-| **Detection** | Custom ruptures + MMD + hyperparams + postprocess. |
+| **Pipelines** | Mode orchestrators (`run_graph1` / `run_graph2` / `run_legacy`) plus shared helpers and `single_pass`. Linear core via Hamilton. |
+| **Detection** | Ruptures search (PELT / Binseg / BottomUp) + MMD / energy tests + hyperparams + postprocess. |
 | **Dimred / features** | Classical and model-based embeddings; RFF / Nyström maps. |
-| **Metrics** | Evaluation primitives, heatmaps, trees, explainability, transitions, robustness, stability. |
+| **Metrics** | Evaluation (covering, F1, recovery), heatmaps, trees, explainability, transitions, robustness, stability. |
 | **Legacy detectors** | Classical labelers (also reused as model-based dimred). |
-| **Validation** | Reject bad YAML knobs before a long run starts. |
 | **Outputs** | Timestamped `bkpt_tests_*` dirs under `outputs/metrics/`, plus logs under `outputs/logs/`. |
 
 ### Key result type
 
-Runs accumulate into `SegmentResults` (alias `CustomAlgoResults`): breakpoints, invalid breakpoints, per-bkpt stats, hierarchy, labels, and optional `persistence`, `low_confidence_bkpts`, and `stability_score` from the deferred Graph 1 stages.
+Runs accumulate into `SegmentResults`: breakpoints (`bkpts`), invalid breakpoints, per-bkpt stats, hierarchy, labels, and optional `persistence`, `low_confidence_bkpts`, and `stability_score` from the deferred Graph 1 stages.
 
 ### Config split
 
 Algo configs (`config/graph1|graph2|legacy/*.yaml`) hold `algo`, `test`, `metrics`, and optional `robustness`, `stability`, `retrain`, and `log` sections. Source configs (`config/sources/*.yaml`) describe only how to load or generate the feature DataFrame. That separation lets you reuse the same detector settings across synthetic smoke data and production DuckDB extracts without code changes.
+
+### Programmatic API
+
+```python
+from pathlib import Path
+from gulfstream import load_features, detect_regimes, refine_regimes, plot_regimes
+from gulfstream.common import utils
+
+root = Path(".")
+params = utils.read_config_yaml(
+    "config/graph1/default_core.yaml",
+    img_dir=str(root / "outputs/metrics"),
+    log_dir=str(root / "outputs/logs"),
+)
+df = load_features("config/sources/synthetic.yaml", project_root=root)
+res = detect_regimes(df, params)
+g2 = utils.read_config_yaml(
+    "config/graph2/full_graph2.yaml",
+    img_dir=str(root / "outputs/metrics"),
+    log_dir=str(root / "outputs/logs"),
+)
+refined = refine_regimes(df, g2, seed=res)
+plot_regimes(df, refined or res)
+```
+
+Prefer `gulfstream.api` over importing pipeline internals. Single-pass segmentation without the grid driver is available as `run_single_segmentation`.
+
+### Glossary
+
+| Term | Meaning |
+|------|---------|
+| **bkpt / bkpts** | Breakpoint index (row) in the dated feature frame |
+| **dimred** | Dimensionality reduction step before the kernel map |
+| **RFF** | Random Fourier Features approximating an RBF kernel |
+| **MMD** | Maximum Mean Discrepancy two-sample test |
+| **PELT / Binseg / BottomUp** | Ruptures search methods for candidate breakpoints |
+| **regimes_df** | Start/End/Regime(+ hierarchy) table used to seed Graph 2 |
+
+---
+
+## Statistical methods roadmap
+
+### Implemented
+
+| Level | Methods |
+|-------|---------|
+| Search | PELT (default), Binseg, BottomUp via `algo.search_method` |
+| Tests | `mmd_no_ts`, `mmd_ts`, `mmd_perm`, `mmd_unbiased`, `energy_distance` |
+| Window HP | `user_specified`, `ess` (effective-sample-size heuristic) |
+| Metrics | recovery rate, Hausdorff, covering, breakpoint precision/recall/F1 |
+
+### Suggested next
+
+| Level | Candidates |
+|-------|------------|
+| Search | Wild Binary Segmentation (WBS); Bayesian Online Changepoint Detection (BOCPD) |
+| Tests | Hotelling T² / multivariate CUSUM; KS on PCA scores; linear-time MMD |
+| Dimred | Nelson–Siegel / dynamic factors for curves; ICA; functional PCA |
+| Metrics | Adjusted Rand index between labelings |
+| Legacy regimes | Jump models; sticky HDP-HMM; GARCH volatility regimes |

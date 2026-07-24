@@ -7,6 +7,7 @@ import polars as pl
 
 from gulfstream.dimred.classical import dmd as dmd_mod
 from gulfstream.common import frames
+from gulfstream.common.options import DimredMethod, values as option_values
 from gulfstream.dimred.classical import kpca as kpca_mod
 from gulfstream.dimred import model_based as model_dimred
 from gulfstream.dimred.classical import pca as pca_mod
@@ -16,38 +17,37 @@ from gulfstream.common.results import DimredResults
 
 
 def _raw_dimred(df: pl.DataFrame, **kwargs) -> DimredResults:
-    return DimredResults(df=df.clone(), dimred="raw", rank=frames.n_features(df))
+    return DimredResults(df=df.clone(), dimred=DimredMethod.RAW, rank=frames.n_features(df))
 
 
 def _raw_generator(df: pl.DataFrame, params: dict):
-    if "raw" in params.get("algo", {}).get("dimred", []):
+    if DimredMethod.RAW in params.get("algo", {}).get("dimred", []):
         yield _raw_dimred(df)
 
 
-_GENERATORS = {
-    "pca": pca_mod._pca_generator,
-    "kpca": kpca_mod._kpca_generator,
-    "raw": _raw_generator,
-    "dmd": dmd_mod._dmd_generator,
-    "tsne": tsne_mod._tsne_generator,
-    "umap": umap_mod._umap_generator,
+GENERATORS = {
+    DimredMethod.PCA: pca_mod._pca_generator,
+    DimredMethod.KPCA: kpca_mod._kpca_generator,
+    DimredMethod.RAW: _raw_generator,
+    DimredMethod.DMD: dmd_mod._dmd_generator,
+    DimredMethod.TSNE: tsne_mod._tsne_generator,
+    DimredMethod.UMAP: umap_mod._umap_generator,
     **model_dimred.GENERATORS,
 }
 
 
-def _dimred_generator(df: pl.DataFrame, params: dict) -> Iterator[DimredResults]:
+def dimred_generator(df: pl.DataFrame, params: dict) -> Iterator[DimredResults]:
     for method in params.get("algo", {}).get("dimred", []):
-        gen = _GENERATORS.get(method)
+        gen = GENERATORS.get(method)
         if gen is None:
             raise ValueError(
                 f"Unknown dimred method {method}. "
-                "Supported: pca/kpca/raw/dmd/tsne/umap/"
-                "bayesian_gmm/hmm/kmeans/hdbscan/optics/msar/wasserstein/ruptures/tft."
+                f"Supported: {'/'.join(option_values(DimredMethod))}."
             )
         yield from gen(df, params)
 
 
-def _get_dimred_param_dict(res: DimredResults) -> dict:
+def get_dimred_param_dict(res: DimredResults) -> dict:
     out = {
         "dimred": res.dimred,
         "rank": res.rank,
@@ -71,3 +71,6 @@ def _get_dimred_param_dict(res: DimredResults) -> dict:
     if res.umap_metric is not None:
         out["umap_metric"] = res.umap_metric
     return {k: v for k, v in out.items() if v is not None}
+
+
+# Temporary aliases removed in the rename sweep.

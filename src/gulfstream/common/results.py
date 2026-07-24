@@ -32,10 +32,6 @@ class SegmentResults:
     stability_score: float | None = None
 
 
-# Back-compat alias
-CustomAlgoResults = SegmentResults
-
-
 @dataclass
 class DimredResults:
     """Results of a dimensionality-reduction step."""
@@ -87,7 +83,7 @@ class ManyMappingResults:
 
 
 @dataclass
-class CustomHyperparameterResults:
+class HyperparameterResults:
     """Selected lag / window / sample_size hyperparameters."""
 
     lag: dict | None = None

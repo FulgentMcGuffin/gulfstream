@@ -24,7 +24,7 @@ from gulfstream.common import logging as logging_config
 from gulfstream.detection import postprocess as output_postprocessing
 from gulfstream.common import utils
 from gulfstream.common.results import AlgoResults
-from gulfstream.validation import legacy
+from gulfstream.common.config import coerce_params
 from gulfstream.pipelines._shared import (
     _initialize_results_writer_and_dir,
     _log_missing_columns,
@@ -76,9 +76,12 @@ LEGACY_PARAM_FORMATTERS = {
 }
 
 
-def legacy_evaluate_regimes_with_user_specified_df(df: pl.DataFrame, params: dict) -> None:
+def run_legacy(df: pl.DataFrame, params: dict) -> None:
     """Run legacy regime detection on ``df`` over the parameter grid in ``params``."""
-    if not legacy._valid_legacy_params_with_user_specified_df(params):
+    try:
+        params = coerce_params(params)
+    except Exception:
+        logger.exception("Invalid parameters; aborting.")
         return
     with logging_config.LoggingContext(params["log"]["dir"], log_level=params["log"]["level"]):
         try:
@@ -110,15 +113,15 @@ def legacy_evaluate_regimes_with_user_specified_df(df: pl.DataFrame, params: dic
         if results_writer is not None:
             results_writer.close()
         if image_dir is not None:
-            utils._generate_gallery(image_dir)
+            utils.generate_gallery(image_dir)
 
 
 def legacy_driver(df: pl.DataFrame, params: dict, misc_params: dict) -> tuple[int, int]:
     test_num = misc_params["test_num"]
     row = misc_params["row"]
-    for res in dimension_reduction._dimred_generator(df, params):
+    for res in dimension_reduction.dimred_generator(df, params):
         df_dimred = res.df
-        algo_params = dimension_reduction._get_dimred_param_dict(res)
+        algo_params = dimension_reduction.get_dimred_param_dict(res)
         for mapping_params, df_mapped in handle_feature_map(df_dimred, params):
             algo_params_copy = algo_params.copy()
             algo_params_copy.update(mapping_params)
@@ -160,15 +163,15 @@ def legacy_process_cases(
 
         logger.info("Running %s regime detection algorithm.", method)
         raw_res = run_legacy_algo(method, df_mapped, case_params)
-        res = bkpt_timeindexing_conversions._convert_results(raw_res, df.height)
+        res = bkpt_timeindexing_conversions.convert_results(raw_res, df.height)
 
         case_algo_params = case_params["algo"]
-        for processing_params in output_postprocessing._legacy_post_processing_params_generator(
+        for processing_params in output_postprocessing.legacy_post_processing_params_generator(
             params
         ):
             case_params["algo"] = case_algo_params.copy()
             case_params["algo"].update(processing_params)
-            processed_results = output_postprocessing._legacy_post_process(
+            processed_results = output_postprocessing.legacy_post_process(
                 res=raw_res,
                 processing_params=processing_params,
                 params=case_params,
@@ -178,7 +181,7 @@ def legacy_process_cases(
             case_params["metrics"]["image_dir"] = _initialize_test_sub_dir(
                 case_params, misc_params["image_dir"]
             )
-            row = _legacy_report_performance(df, case_params, processed_results, res)
+            row = _legacyreport_performance(df, case_params, processed_results, res)
             test_num += 1
             case_params["row"] = row
             case_params["test_num"] = test_num
@@ -213,7 +216,7 @@ def run_legacy_algo(method: str, df: pl.DataFrame, params: dict) -> AlgoResults:
 
 
 def handle_feature_map(df: pl.DataFrame, params: dict):
-    for res in kernel_feature_mapping._legacy_feature_map_generator(df, params):
+    for res in kernel_feature_mapping.legacy_feature_map_generator(df, params):
         mapped_df = res.dfs[0]
         mapping_params = {
             "feature_map_kernel_params": res.kernel_params,
@@ -225,7 +228,7 @@ def handle_feature_map(df: pl.DataFrame, params: dict):
         yield mapping_params, mapped_df
 
 
-def _legacy_report_performance(
+def _legacyreport_performance(
     df: pl.DataFrame,
     params: dict,
     proc_res: AlgoResults,
@@ -285,7 +288,7 @@ def _regime_plot(
     regimes_df = bkpt_timeindexing_conversions.get_regime_intervals_legacy(
         labels, date_index
     )
-    regime_plots._visualize_market_regimes(
+    regime_plots.plot_market_regimes(
         df,
         regimes_df,
         title="Regime plot",

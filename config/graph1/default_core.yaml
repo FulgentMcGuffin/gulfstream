@@ -4,6 +4,7 @@ algo:
   threshold: [0.9]
   recursive_method: [full]
   depth: [2]
+  search_method: [pelt]  # pelt | binseg | bottomup
   feature_map_approx_method: [rff]
   feature_map_kernel_params:
     - kernel: rbf

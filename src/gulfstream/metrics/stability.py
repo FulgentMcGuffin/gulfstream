@@ -87,7 +87,7 @@ def _plot_stability(
     if img_dir:
         os.makedirs(img_dir, exist_ok=True)
         path = os.path.join(
-            img_dir, utils._img_gallery_filename("stability_summary").lstrip("/")
+            img_dir, utils.img_gallery_filename("stability_summary").lstrip("/")
         )
         report.write_csv(os.path.join(img_dir, "stability_report.csv"))
     plotting.emit_ggplot(

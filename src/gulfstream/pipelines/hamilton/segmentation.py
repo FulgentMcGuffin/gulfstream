@@ -43,8 +43,8 @@ def prepared_params(params: dict) -> dict:
 
 def lag_pca_df(features_df: pl.DataFrame, prepared_params: dict) -> pl.DataFrame | None:
     """Optional PCA frame used when ACF lag selection is requested."""
-    if custom_hyperparameter_selection._custom_asked_for_acf_lag_selection(prepared_params):
-        return custom_hyperparameter_selection._custom_calculate_pca_for_lag_selection(
+    if custom_hyperparameter_selection.asked_for_acf_lag_selection(prepared_params):
+        return custom_hyperparameter_selection.calculate_pca_for_lag_selection(
             features_df
         )
     return None
@@ -52,7 +52,7 @@ def lag_pca_df(features_df: pl.DataFrame, prepared_params: dict) -> pl.DataFrame
 
 def dimred_result(features_df: pl.DataFrame, prepared_params: dict) -> DimredResults:
     """First dimred embedding from the configured generator grid."""
-    return next(dimension_reduction._dimred_generator(features_df, prepared_params))
+    return next(dimension_reduction.dimred_generator(features_df, prepared_params))
 
 
 def df_dimred(dimred_result: DimredResults) -> pl.DataFrame:
@@ -60,20 +60,20 @@ def df_dimred(dimred_result: DimredResults) -> pl.DataFrame:
 
 
 def dimred_algo_params(dimred_result: DimredResults) -> dict:
-    algo_params = dimension_reduction._get_dimred_param_dict(dimred_result)
+    algo_params = dimension_reduction.get_dimred_param_dict(dimred_result)
     algo_params["recursive_method"] = "full"
     return algo_params
 
 
 def date_strings(features_df: pl.DataFrame) -> list[str]:
-    return bkpt_timeindexing_conversions._get_strs_from_df_index(features_df)
+    return bkpt_timeindexing_conversions.get_strs_from_df_index(features_df)
 
 
 def feature_map_bundle(
     df_dimred: pl.DataFrame, prepared_params: dict
 ) -> tuple[dict, list, list]:
     """Return ``(mapping_params, mapped_dfs_list, diff_dfs_list)`` for ``full``."""
-    for res in kernel_feature_mapping._feature_map_generator(df_dimred, prepared_params):
+    for res in kernel_feature_mapping.feature_map_generator(df_dimred, prepared_params):
         mapping_params = {
             "feature_map_kernel_params": res.kernel_params,
             "feature_map_approx_method": res.feature_map_approx_method,
@@ -91,9 +91,9 @@ def case_params(
     df_dimred: pl.DataFrame,
 ) -> dict:
     mapping_params, _mapped_lists, _diff_lists = feature_map_bundle
-    ruptures_params = next(bkpt_algo._kernel_ruptures_generator([df_dimred], prepared_params))
-    test_params = next(bkpt_stat_tests._test_param_combos(prepared_params))
-    late = next(bkpt_algo._late_algo_param_combos(prepared_params))
+    ruptures_params = next(bkpt_algo.kernel_ruptures_generator([df_dimred], prepared_params))
+    test_params = next(bkpt_stat_tests.test_param_combos(prepared_params))
+    late = next(bkpt_algo.late_algo_param_combos(prepared_params))
     out = {
         "test": test_params.copy(),
         "algo": {**dimred_algo_params, **late, **mapping_params},
@@ -113,7 +113,7 @@ def raw_segmentation(
     _mapping_params, mapped_lists, diff_lists = feature_map_bundle
     mapped_dfs = mapped_lists[0]
     mapped_df_diffs = diff_lists[0]
-    return bkpt_algo._find_and_test_bkpts(
+    return bkpt_algo.find_and_test_bkpts(
         df_dimred,
         mapped_dfs,
         case_params,
@@ -126,13 +126,13 @@ def raw_segmentation(
 def combined_raw(
     raw_segmentation: SegmentResults, df_dimred: pl.DataFrame
 ) -> SegmentResults:
-    return output_postprocessing._combine_results(df_dimred.height, [raw_segmentation])
+    return output_postprocessing.combine_results(df_dimred.height, [raw_segmentation])
 
 
 def unprocessed_result(
     combined_raw: SegmentResults, features_df: pl.DataFrame
 ) -> SegmentResults:
-    return bkpt_timeindexing_conversions._convert_results(combined_raw, features_df.height)
+    return bkpt_timeindexing_conversions.convert_results(combined_raw, features_df.height)
 
 
 def processed_result(
@@ -148,13 +148,13 @@ def processed_result(
     mapped_dfs = mapped_lists[0]
     mapped_df_diffs = diff_lists[0]
     processing_params = next(
-        output_postprocessing._post_processing_params_generator(
+        output_postprocessing.post_processing_params_generator(
             case_params["test"]["choice"], prepared_params
         )
     )
     case_params = copy.deepcopy(case_params)
     case_params["algo"].update(processing_params)
-    return output_postprocessing._post_process(
+    return output_postprocessing.post_process(
         res=combined_raw,
         processing_params=processing_params,
         params=case_params,

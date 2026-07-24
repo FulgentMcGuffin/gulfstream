@@ -1,80 +1,55 @@
-"""Statistical tests for accepting/rejecting candidate breakpoints."""
+"""Statistical tests for accepting/rejecting candidate breakpoints.
+
+Registered tests (``test.choice``):
+
+- ``mmd_no_ts`` / ``mmd_ts`` / ``mmd_perm`` — biased squared MMD with an RBF
+  kernel and a permutation p-value (``mmd_perm`` uses more permutations;
+  ``mmd_ts`` additionally prepares first-difference maps upstream).
+- ``mmd_unbiased`` — unbiased MMD² estimator (U-statistic), permutation p-value.
+- ``energy_distance`` — Székely–Rizzo energy distance, permutation p-value.
+  No kernel bandwidth to tune.
+"""
 from __future__ import annotations
 
 import itertools
 import logging
-from typing import Iterator
+from typing import Callable, Iterator
 
 import numpy as np
 import polars as pl
-from sklearn.metrics.pairwise import rbf_kernel
+from sklearn.metrics.pairwise import pairwise_distances, rbf_kernel
 
 from gulfstream.common import frames
+from gulfstream.common.options import StatTest
 
 logger = logging.getLogger(__name__)
 
+MMD_TESTS = (
+    StatTest.MMD_NO_TS,
+    StatTest.MMD_TS,
+    StatTest.MMD_PERM,
+    StatTest.MMD_UNBIASED,
+)
 
-def _valid_mmd_common(test_params: dict) -> bool:
-    valid = True
-    for key in ("lag", "window", "sample_size"):
-        if key not in test_params:
-            logger.error("'%s' must be provided in 'test' for MMD tests.", key)
-            valid = False
-        elif not isinstance(test_params[key], list) or len(test_params[key]) == 0:
-            logger.error("'%s' must be a nonempty list of dicts.", key)
-            valid = False
-    if "significance_level" in test_params:
-        levels = test_params["significance_level"]
-        if not isinstance(levels, list) or not all(isinstance(x, (int, float)) for x in levels):
-            logger.error("'significance_level' must be a list of floats.")
-            valid = False
-    return valid
-
-
-def _valid_mmd_no_ts(test_params: dict) -> bool:
-    return _valid_mmd_common(test_params)
-
-
-def _valid_mmd_ts(test_params: dict) -> bool:
-    return _valid_mmd_common(test_params)
-
-
-def _valid_mmd_perm(test_params: dict) -> bool:
-    return _valid_mmd_common(test_params)
-
-
-STAT_TEST_INPUT_VALIDATORS = {
-    "mmd_no_ts": _valid_mmd_no_ts,
-    "mmd_ts": _valid_mmd_ts,
-    "mmd_perm": _valid_mmd_perm,
-}
-
-DEFAULT_STATS = {
-    "mmd_no_ts": (0.0, 1.0),
-    "mmd_ts": (0.0, 1.0),
-    "mmd_perm": (0.0, 1.0),
-}
+DEFAULT_STATS = {choice: (0.0, 1.0) for choice in StatTest}
 
 STAT_COLUMN_NAMES = {
-    "mmd_no_ts": ["mmd_stat", "mmd_pvalue"],
-    "mmd_ts": ["mmd_stat", "mmd_pvalue"],
-    "mmd_perm": ["mmd_stat", "mmd_pvalue"],
+    StatTest.MMD_NO_TS: ["mmd_stat", "mmd_pvalue"],
+    StatTest.MMD_TS: ["mmd_stat", "mmd_pvalue"],
+    StatTest.MMD_PERM: ["mmd_stat", "mmd_pvalue"],
+    StatTest.MMD_UNBIASED: ["mmd_stat", "mmd_pvalue"],
+    StatTest.ENERGY_DISTANCE: ["energy_stat", "energy_pvalue"],
 }
 
-STAT_DTYPES = {
-    "mmd_no_ts": [float, float],
-    "mmd_ts": [float, float],
-    "mmd_perm": [float, float],
-}
+STAT_DTYPES = {choice: [float, float] for choice in StatTest}
 
 PARAM_FORMATTERS = {
-    "mmd_no_ts": lambda: {"lag": "lag", "window": "window", "sample_size": "sample_size"},
-    "mmd_ts": lambda: {"lag": "lag", "window": "window", "sample_size": "sample_size"},
-    "mmd_perm": lambda: {"lag": "lag", "window": "window", "sample_size": "sample_size"},
+    choice: (lambda: {"lag": "lag", "window": "window", "sample_size": "sample_size"})
+    for choice in StatTest
 }
 
 
-def _test_param_combos(params: dict) -> Iterator[dict]:
+def test_param_combos(params: dict) -> Iterator[dict]:
     """Yield single-combo test parameter dicts."""
     test = params["test"]
     choices = test["choice"]
@@ -95,12 +70,76 @@ def _test_param_combos(params: dict) -> Iterator[dict]:
         }
 
 
+# ---------------------------------------------------------------------------
+# Statistics
+# ---------------------------------------------------------------------------
+
+
 def _biased_mmd2(x: np.ndarray, y: np.ndarray, gamma: float) -> float:
     """Biased squared MMD with RBF kernel."""
     kxx = rbf_kernel(x, x, gamma=gamma)
     kyy = rbf_kernel(y, y, gamma=gamma)
     kxy = rbf_kernel(x, y, gamma=gamma)
     return float(kxx.mean() + kyy.mean() - 2.0 * kxy.mean())
+
+
+def _unbiased_mmd2(x: np.ndarray, y: np.ndarray, gamma: float) -> float:
+    """Unbiased squared MMD (U-statistic): diagonal terms excluded."""
+    n, m = len(x), len(y)
+    if n < 2 or m < 2:
+        return 0.0
+    kxx = rbf_kernel(x, x, gamma=gamma)
+    kyy = rbf_kernel(y, y, gamma=gamma)
+    kxy = rbf_kernel(x, y, gamma=gamma)
+    sum_xx = (kxx.sum() - np.trace(kxx)) / (n * (n - 1))
+    sum_yy = (kyy.sum() - np.trace(kyy)) / (m * (m - 1))
+    return float(sum_xx + sum_yy - 2.0 * kxy.mean())
+
+
+def _energy_distance(x: np.ndarray, y: np.ndarray, gamma: float | None = None) -> float:
+    """Székely–Rizzo energy distance between samples (gamma unused)."""
+    dxy = pairwise_distances(x, y).mean()
+    dxx = pairwise_distances(x, x).mean()
+    dyy = pairwise_distances(y, y).mean()
+    return float(2.0 * dxy - dxx - dyy)
+
+
+def _median_gamma(x: np.ndarray, y: np.ndarray) -> float:
+    combo = np.vstack([x, y])
+    med = float(np.median(pairwise_distances(combo)))
+    return 1.0 / (2 * max(med, 1e-8) ** 2)
+
+
+def _as_2d(a: pl.DataFrame | np.ndarray) -> np.ndarray:
+    if isinstance(a, pl.DataFrame):
+        arr = frames.to_numpy(a)
+    else:
+        arr = np.asarray(a, dtype=float)
+    return arr.reshape(-1, 1) if arr.ndim == 1 else arr
+
+
+def _permutation_test(
+    x: np.ndarray,
+    y: np.ndarray,
+    statistic: Callable[[np.ndarray, np.ndarray, float | None], float],
+    *,
+    gamma: float | None,
+    n_permutations: int,
+    significance_level: float,
+) -> tuple[float, float, bool]:
+    """Shared permutation harness: (statistic, p_value, accept)."""
+    stat = statistic(x, y, gamma)
+    pooled = np.vstack([x, y])
+    n_x = len(x)
+    count = 0
+    rng = np.random.default_rng(0)
+    for _ in range(n_permutations):
+        rng.shuffle(pooled)
+        stat_p = statistic(pooled[:n_x], pooled[n_x:], gamma)
+        if stat_p >= stat:
+            count += 1
+    p_value = (count + 1) / (n_permutations + 1)
+    return stat, p_value, p_value < significance_level
 
 
 def run_mmd_test(
@@ -110,44 +149,43 @@ def run_mmd_test(
     gamma: float | None = None,
     n_permutations: int = 50,
     significance_level: float = 0.05,
+    unbiased: bool = False,
 ) -> tuple[float, float, bool]:
     """Return (statistic, p_value, accept_breakpoint).
 
     Accept means distributions differ enough to treat the candidate as a breakpoint.
     """
-    if isinstance(left, pl.DataFrame):
-        x = frames.to_numpy(left)
-    else:
-        x = np.asarray(left, dtype=float)
-    if isinstance(right, pl.DataFrame):
-        y = frames.to_numpy(right)
-    else:
-        y = np.asarray(right, dtype=float)
-    if x.ndim == 1:
-        x = x.reshape(-1, 1)
-    if y.ndim == 1:
-        y = y.reshape(-1, 1)
+    x, y = _as_2d(left), _as_2d(right)
     if gamma is None:
-        combo = np.vstack([x, y])
-        from sklearn.metrics.pairwise import pairwise_distances
+        gamma = _median_gamma(x, y)
+    statistic = _unbiased_mmd2 if unbiased else _biased_mmd2
+    return _permutation_test(
+        x,
+        y,
+        statistic,
+        gamma=gamma,
+        n_permutations=n_permutations,
+        significance_level=significance_level,
+    )
 
-        med = float(np.median(pairwise_distances(combo)))
-        gamma = 1.0 / (2 * max(med, 1e-8) ** 2)
 
-    stat = _biased_mmd2(x, y, gamma)
-    # Permutation p-value.
-    pooled = np.vstack([x, y])
-    n_x = len(x)
-    count = 0
-    rng = np.random.default_rng(0)
-    for _ in range(n_permutations):
-        rng.shuffle(pooled)
-        stat_p = _biased_mmd2(pooled[:n_x], pooled[n_x:], gamma)
-        if stat_p >= stat:
-            count += 1
-    p_value = (count + 1) / (n_permutations + 1)
-    accept = p_value < significance_level
-    return stat, p_value, accept
+def run_energy_distance_test(
+    left: pl.DataFrame | np.ndarray,
+    right: pl.DataFrame | np.ndarray,
+    *,
+    n_permutations: int = 50,
+    significance_level: float = 0.05,
+) -> tuple[float, float, bool]:
+    """Energy-distance two-sample test with a permutation p-value."""
+    x, y = _as_2d(left), _as_2d(right)
+    return _permutation_test(
+        x,
+        y,
+        _energy_distance,
+        gamma=None,
+        n_permutations=n_permutations,
+        significance_level=significance_level,
+    )
 
 
 def test_breakpoint(
@@ -182,7 +220,18 @@ def test_breakpoint(
     if sample_size < right.height:
         right = frames.slice_rows(right, 0, sample_size)
 
-    if choice in ("mmd_no_ts", "mmd_ts", "mmd_perm"):
-        n_perm = 100 if choice == "mmd_perm" else 50
+    if choice in (StatTest.MMD_NO_TS, StatTest.MMD_TS, StatTest.MMD_PERM):
+        n_perm = 100 if choice == StatTest.MMD_PERM else 50
         return run_mmd_test(left, right, n_permutations=n_perm, significance_level=sig)
+    if choice == StatTest.MMD_UNBIASED:
+        return run_mmd_test(
+            left, right, n_permutations=50, significance_level=sig, unbiased=True
+        )
+    if choice == StatTest.ENERGY_DISTANCE:
+        return run_energy_distance_test(
+            left, right, n_permutations=50, significance_level=sig
+        )
     raise ValueError(f"Unknown test choice {choice}")
+
+
+# Temporary alias removed in the rename sweep.

@@ -22,7 +22,7 @@ from gulfstream.common.results import SegmentResults
 logger = logging.getLogger(__name__)
 
 
-def _attach_retrain_tree(
+def attach_retrain_tree(
     bkpt_index_dict: dict,
     hierarchy: dict,
     start: int,
@@ -105,7 +105,7 @@ def _plot_tree(
     fig.tight_layout()
     if save and img_dir:
         os.makedirs(img_dir, exist_ok=True)
-        path = os.path.join(img_dir, utils._img_gallery_filename(gallery_key).lstrip("/"))
+        path = os.path.join(img_dir, utils.img_gallery_filename(gallery_key).lstrip("/"))
         fig.savefig(path, dpi=120)
         logger.info("Saved breakpoint tree to %s", path)
     if draw:
@@ -125,7 +125,7 @@ def _plot_tree(
             f.write("\n".join(lines))
 
 
-def _build_and_plot_bkpt_trees(
+def build_and_plot_bkpt_trees(
     df: pl.DataFrame,
     params: dict,
     proc_res: SegmentResults,
@@ -141,7 +141,7 @@ def _build_and_plot_bkpt_trees(
     mode = metrics.get("mode", "write")
     draw = draw or mode in ("display", "display_and_write")
     save = save or mode in ("write", "display_and_write")
-    dates = bkpt_timeindexing_conversions._get_strs_from_df_index(df)
+    dates = bkpt_timeindexing_conversions.get_strs_from_df_index(df)
     hierarchy = proc_res.hierarchy or {b: 1 for b in proc_res.bkpts}
     _plot_tree(
         hierarchy,

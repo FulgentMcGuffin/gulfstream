@@ -9,13 +9,14 @@ import numpy as np
 import polars as pl
 
 from gulfstream.common import utils
+from gulfstream.common.options import PostProcessing
 from gulfstream.common.results import AlgoResults, SegmentResults
-from gulfstream.detection.time_index import _convert_results
+from gulfstream.detection.time_index import convert_results
 
 logger = logging.getLogger(__name__)
 
 
-def _combine_params(mapping_params: list[dict]) -> dict:
+def combine_params(mapping_params: list[dict]) -> dict:
     """Merge per-PC mapping param dicts; varying values become tuples."""
     if not mapping_params:
         return {}
@@ -32,7 +33,7 @@ def _combine_params(mapping_params: list[dict]) -> dict:
     return out
 
 
-def _combine_results(length: int, results: list[SegmentResults]) -> SegmentResults:
+def combine_results(length: int, results: list[SegmentResults]) -> SegmentResults:
     """Merge per-PC results (iterative_pca) or return the single full result."""
     if not results:
         return SegmentResults(bkpts=[], labels=[0] * length)
@@ -46,7 +47,7 @@ def _combine_results(length: int, results: list[SegmentResults]) -> SegmentResul
     for r in results:
         stats.update(r.stats)
         hierarchy.update(r.hierarchy)
-    labels = utils._convert_bkpts_to_labels(bkpts, length)
+    labels = utils.convert_bkpts_to_labels(bkpts, length)
     return SegmentResults(
         bkpts=bkpts,
         invalid_bkpts=invalid,
@@ -57,26 +58,28 @@ def _combine_results(length: int, results: list[SegmentResults]) -> SegmentResul
     )
 
 
-def _post_processing_params_generator(test_choice: str, params: dict) -> Iterator[dict]:
-    methods = params["algo"].get("post_processing_method", ["no_post_processing"])
+def post_processing_params_generator(test_choice: str, params: dict) -> Iterator[dict]:
+    methods = params["algo"].get(
+        "post_processing_method", [PostProcessing.NO_POST_PROCESSING]
+    )
     min_lens = params["algo"].get("min_regime_length", [1])
     include_last = params["algo"].get("include_last_regime", [True])
     entropy_windows = params["algo"].get("entropy_window", [10])
 
     for method in methods:
-        if method in ("majority_voting", "entropy"):
+        if method in (PostProcessing.MAJORITY_VOTING, PostProcessing.ENTROPY):
             for ml, il in itertools.product(min_lens, include_last):
                 out = {
                     "post_processing_method": method,
                     "min_regime_length": ml,
                     "include_last_regime": il,
                 }
-                if method == "entropy":
+                if method == PostProcessing.ENTROPY:
                     for ew in entropy_windows:
                         yield {**out, "entropy_window": ew}
                 else:
                     yield out
-        elif method == "neighbor_comparison":
+        elif method == PostProcessing.NEIGHBOR_COMPARISON:
             for ml in min_lens:
                 yield {"post_processing_method": method, "min_regime_length": ml}
         else:
@@ -123,7 +126,7 @@ def _majority_voting(
         # Optionally drop the last breakpoint (merge last two regimes).
         pass  # keep all kept; flag reserved for parity with original API
 
-    labels = utils._convert_bkpts_to_labels(kept, length)
+    labels = utils.convert_bkpts_to_labels(kept, length)
     hierarchy = {b: res.hierarchy.get(b, 1) for b in kept}
     stats = {b: res.stats[b] for b in kept if b in res.stats}
     return SegmentResults(
@@ -136,7 +139,7 @@ def _majority_voting(
     )
 
 
-def _post_process(
+def post_process(
     *,
     res: SegmentResults,
     processing_params: dict,
@@ -148,9 +151,11 @@ def _post_process(
     df_pca: pl.DataFrame | None = None,
 ) -> SegmentResults:
     """Post-process breakpoints; return results in original-index units."""
-    method = processing_params.get("post_processing_method", "no_post_processing")
+    method = processing_params.get(
+        "post_processing_method", PostProcessing.NO_POST_PROCESSING
+    )
     # Work in dimred units first, then convert to original length.
-    if method == "no_post_processing":
+    if method == PostProcessing.NO_POST_PROCESSING:
         processed = SegmentResults(
             bkpts=list(res.bkpts),
             invalid_bkpts=list(res.invalid_bkpts),
@@ -159,7 +164,7 @@ def _post_process(
             labels=res.labels,
             params=res.params,
         )
-    elif method == "majority_voting":
+    elif method == PostProcessing.MAJORITY_VOTING:
         processed = _majority_voting(
             res,
             length=df_dimred.height,
@@ -170,24 +175,26 @@ def _post_process(
         logger.warning("Post-processing method %s not fully implemented; passing through.", method)
         processed = res
 
-    return _convert_results(processed, length)
+    return convert_results(processed, length)
 
 
-def _legacy_post_processing_params_generator(params: dict) -> Iterator[dict]:
+def legacy_post_processing_params_generator(params: dict) -> Iterator[dict]:
     """Yield post-processing param dicts for legacy (non-interval) methods."""
-    methods = params["algo"].get("post_processing_method", ["no_post_processing"])
+    methods = params["algo"].get(
+        "post_processing_method", [PostProcessing.NO_POST_PROCESSING]
+    )
     min_lens = params["algo"].get("min_regime_length", [1])
     include_last = params["algo"].get("include_last_regime", [True])
 
     for method in methods:
-        if method == "majority_voting":
+        if method == PostProcessing.MAJORITY_VOTING:
             for ml, il in itertools.product(min_lens, include_last):
                 yield {
                     "post_processing_method": method,
                     "min_regime_length": ml,
                     "include_last_regime": il,
                 }
-        elif method == "neighbor_comparison":
+        elif method == PostProcessing.NEIGHBOR_COMPARISON:
             for ml in min_lens:
                 yield {"post_processing_method": method, "min_regime_length": ml}
         else:
@@ -219,11 +226,11 @@ def _legacy_majority_voting(
     if not include_last_regime and kept:
         pass
 
-    labels = utils._convert_bkpts_to_labels(kept, length)
+    labels = utils.convert_bkpts_to_labels(kept, length)
     return AR(bkpts=kept, labels=labels, params=res.params)
 
 
-def _legacy_post_process(
+def legacy_post_process(
     *,
     res,
     processing_params: dict,
@@ -234,15 +241,17 @@ def _legacy_post_process(
     """Post-process legacy AlgoResults and remap to original series length."""
     from gulfstream.common.results import AlgoResults as AR
 
-    method = processing_params.get("post_processing_method", "no_post_processing")
+    method = processing_params.get(
+        "post_processing_method", PostProcessing.NO_POST_PROCESSING
+    )
     work_len = df_dimred.height
-    if method == "no_post_processing":
+    if method == PostProcessing.NO_POST_PROCESSING:
         processed = AR(
             bkpts=list(res.bkpts),
             labels=list(res.labels) if res.labels is not None else None,
             params=res.params,
         )
-    elif method == "majority_voting":
+    elif method == PostProcessing.MAJORITY_VOTING:
         processed = _legacy_majority_voting(
             res,
             length=work_len,
@@ -256,4 +265,4 @@ def _legacy_post_process(
         )
         processed = res
 
-    return _convert_results(processed, length)
+    return convert_results(processed, length)
