@@ -1,4 +1,4 @@
-"""Ruptures model-based dimred (delegates to legacy.detectors.ruptures_methods)."""
+"""Ruptures model-based dimred (delegates to detectors.ruptures_methods)."""
 from __future__ import annotations
 
 import numpy as np
@@ -8,7 +8,7 @@ from gulfstream.common import frames
 from gulfstream.common.options import DimredMethod
 from gulfstream.common.results import DimredResults
 from gulfstream.dimred.model_based._common import _as_frame
-from gulfstream.legacy.detectors import ruptures_methods as ruptures_mod
+from gulfstream.detectors import ruptures_methods as ruptures_mod
 
 
 def _ruptures_dimred(

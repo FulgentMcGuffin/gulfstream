@@ -10,7 +10,7 @@ import hmmlearn.hmm as hmm
 from gulfstream.common import frames
 from gulfstream.common import utils
 from gulfstream.common.results import AlgoResults
-from gulfstream.legacy.detectors import common_validation as common
+from gulfstream.detectors import common_validation as common
 
 logger = logging.getLogger(__name__)
 

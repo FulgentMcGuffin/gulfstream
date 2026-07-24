@@ -1,4 +1,4 @@
-"""TFT model-based dimred (delegates to legacy.detectors.tft)."""
+"""TFT model-based dimred (delegates to detectors.tft)."""
 from __future__ import annotations
 
 import numpy as np
@@ -8,7 +8,7 @@ from sklearn.decomposition import PCA
 from gulfstream.common.options import DimredMethod
 from gulfstream.common.results import DimredResults
 from gulfstream.dimred.model_based._common import _as_frame
-from gulfstream.legacy.detectors import tft as tft_mod
+from gulfstream.detectors import tft as tft_mod
 
 
 def _attention_to_matrix(attn: dict, n_times: int) -> np.ndarray:

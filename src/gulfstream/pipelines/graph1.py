@@ -27,6 +27,7 @@ from gulfstream.pipelines._shared import (
     _log_missing_columns,
     produce_all_metrics,
 )
+from gulfstream.pipelines.classical import classical_driver, uses_classical_backend
 from gulfstream.pipelines.single_pass import run_single_segmentation_pair
 
 logger = logging.getLogger(__name__)
@@ -179,6 +180,10 @@ def _process_cases(
 
 
 def _main_driver(df: pl.DataFrame, params: dict, misc_params: dict):
+    if uses_classical_backend(params):
+        test_num, row, _last = classical_driver(df, params, misc_params)
+        return test_num, row
+
     if custom_hyperparameter_selection.asked_for_acf_lag_selection(params):
         df_pca = custom_hyperparameter_selection.calculate_pca_for_lag_selection(df)
     else:

@@ -14,6 +14,8 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from gulfstream.common.options import (
+    ClassicalDetector,
+    DetectionBackend,
     DimredMethod,
     FeatureMapApprox,
     GammaMethod,
@@ -52,6 +54,12 @@ class AlgoConfig(BaseModel):
     search_method: list[SearchMethod | str] = Field(
         default_factory=lambda: [SearchMethod.PELT]
     )
+    detection_backend: list[DetectionBackend | str] = Field(
+        default_factory=lambda: [DetectionBackend.KERNEL_RUPTURES]
+    )
+    regime_detection_algorithm: list[ClassicalDetector | str] = Field(
+        default_factory=list
+    )
     feature_map_approx_method: list[FeatureMapApprox | str] = Field(
         default_factory=lambda: [FeatureMapApprox.RFF]
     )
@@ -83,6 +91,8 @@ class AlgoConfig(BaseModel):
         "recursive_method",
         "depth",
         "search_method",
+        "detection_backend",
+        "regime_detection_algorithm",
         "feature_map_approx_method",
         "num_features",
         "num_mappings",
@@ -103,6 +113,17 @@ class AlgoConfig(BaseModel):
     @classmethod
     def coerce_list(cls, v: Any) -> list:
         return _as_list(v)
+
+    @model_validator(mode="after")
+    def classical_requires_detector(self) -> AlgoConfig:
+        backends = [str(b) for b in self.detection_backend]
+        if DetectionBackend.CLASSICAL in backends or "classical" in backends:
+            if not self.regime_detection_algorithm:
+                raise ValueError(
+                    "algo.detection_backend includes 'classical' but "
+                    "algo.regime_detection_algorithm is empty."
+                )
+        return self
 
 
 class TestConfig(BaseModel):
@@ -222,9 +243,6 @@ class Config(BaseModel):
     stability: StabilityConfig = Field(default_factory=StabilityConfig)
     retrain: RetrainConfig | None = None
 
-    # Legacy detector key (optional)
-    regime_detection_algorithm: list[str] | None = None
-
     @model_validator(mode="before")
     @classmethod
     def ensure_sections(cls, data: Any) -> Any:
@@ -269,10 +287,31 @@ class RunContext:
 
 
 def coerce_params(config: Config | dict[str, Any]) -> dict[str, Any]:
-    """Accept Config or dict; always return a validated params dict."""
+    """Accept Config or dict; always return a validated params dict.
+
+    Runtime objects under ``retrain.regimes_df`` (e.g. a polars DataFrame)
+    are preserved across validation — pydantic ``mode='json'`` cannot dump them.
+    """
+    regimes_df = None
     if isinstance(config, Config):
-        return config.to_params()
-    return Config.model_validate(config).to_params()
+        if config.retrain is not None and config.retrain.regimes_df is not None:
+            regimes_df = config.retrain.regimes_df
+            config.retrain.regimes_df = None
+        params = config.to_params()
+    else:
+        raw = dict(config)
+        retrain = raw.get("retrain")
+        if isinstance(retrain, dict) and "regimes_df" in retrain:
+            regimes_df = retrain.pop("regimes_df")
+            raw["retrain"] = dict(retrain)
+        params = Config.model_validate(raw).to_params()
+
+    if regimes_df is not None:
+        params.setdefault("retrain", {})
+        if params["retrain"] is None:
+            params["retrain"] = {}
+        params["retrain"]["regimes_df"] = regimes_df
+    return params
 
 
 def load_config(

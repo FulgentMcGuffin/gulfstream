@@ -5,6 +5,7 @@ algo:
   recursive_method: [full]
   depth: [2]
   search_method: [pelt]  # pelt | binseg | bottomup
+  detection_backend: [kernel_ruptures]  # kernel_ruptures | classical
   feature_map_approx_method: [rff]
   feature_map_kernel_params:
     - kernel: rbf

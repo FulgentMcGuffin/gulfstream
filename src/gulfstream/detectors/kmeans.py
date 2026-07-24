@@ -8,7 +8,7 @@ import logging
 from sklearn.cluster import KMeans
 
 from gulfstream.common.results import AlgoResults
-from gulfstream.legacy.detectors import common_validation as common
+from gulfstream.detectors import common_validation as common
 from gulfstream.common import frames
 from gulfstream.common import utils
 

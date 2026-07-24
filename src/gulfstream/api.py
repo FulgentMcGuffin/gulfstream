@@ -18,7 +18,6 @@ from gulfstream.metrics.regime_plots import plot_market_regimes
 from gulfstream.pipelines.graph1 import run_graph1
 from gulfstream.pipelines.graph2 import run_graph2, seed_regimes_from_results
 from gulfstream.pipelines.hamilton.driver import load_features as _load_features
-from gulfstream.pipelines.legacy import run_legacy
 from gulfstream.pipelines.single_pass import run_single_segmentation
 
 
@@ -38,6 +37,7 @@ def detect_regimes(
 ) -> SegmentResults | None:
     """Run Graph 1 and return a segmentation result.
 
+    Uses ``algo.detection_backend`` (``kernel_ruptures`` or ``classical``).
     Side-effecting artifact writes still follow ``metrics.mode`` / ``metrics.dir``.
     For a pure in-memory single pass without the grid driver, prefer
     :func:`run_single_segmentation`.
@@ -62,15 +62,6 @@ def refine_regimes(
     if "retrain" not in params:
         raise ValueError("refine_regimes requires a 'retrain' section in config.")
     return run_graph2(df, params)
-
-
-def run_legacy_detector(
-    df: pl.DataFrame,
-    config: Config | dict[str, Any],
-) -> None:
-    """Run a legacy classical detector pipeline (writes artifacts)."""
-    params = coerce_params(config)
-    run_legacy(df, params)
 
 
 def plot_regimes(
@@ -112,7 +103,6 @@ __all__ = [
     "load_features",
     "detect_regimes",
     "refine_regimes",
-    "run_legacy_detector",
     "plot_regimes",
     "regime_intervals",
     "run_single_segmentation",

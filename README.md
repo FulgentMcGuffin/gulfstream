@@ -2,11 +2,14 @@
 
 Gulfstream implements pipelines for detecting structural breaks between time series regimes. We use the example of FX and yield-curve data, but any time series dataset will work. The core data structure must be (one or more) **polars** `DataFrame` with a required `date` column (`gulfstream.common.frames`). 
 
-Three pipeline modes are available. 
+Three pipeline modes share one CLI / API surface:
 
-* **Graph 1** runs full regime detection end to end: features → PCA/kPCA → RFF → ruptures → MMD → postprocess, then optional plots, insights, explainability, robustness, and stability. 
-* **Graph 2** wraps that core in a targeted retrain loop: build an L2 heatmap, pick the worst regime and features, detect on the slice, merge breakpoints, and repeat. 
-* **Legacy** exposes classical detectors (k-means, HDBSCAN, OPTICS, HMM, Bayesian GMM, MSAR, ruptures, Wasserstein) with optional DMD, t-SNE, or UMAP dimred.
+* **Graph 1** runs full regime detection end to end. Default backend (`algo.detection_backend: kernel_ruptures`): features → PCA/kPCA → RFF → ruptures (PELT / Binseg / BottomUp) → MMD or energy-distance tests → postprocess, then optional plots, insights, explainability, robustness, and stability. Set `detection_backend: classical` to use hard-label detectors (k-means, HDBSCAN, OPTICS, HMM, Bayesian GMM, MSAR, ruptures, Wasserstein) instead of the ruptures+MMD stack.
+* **Graph 2** wraps that core in a targeted retrain loop: build an L2 heatmap, pick the worst regime and features, detect on the slice, merge breakpoints, and repeat (works with either backend).
+
+Classical detectors also appear as **soft dimred embeddings** (`algo.dimred: [kmeans|hmm|…]`) feeding the kernel_ruptures path — orthogonal to hard-label `detection_backend: classical`.
+
+For notebooks and scripts, prefer the **public API** in `gulfstream.api` (re-exported from `import gulfstream`): `load_features`, `detect_regimes`, `refine_regimes`, `run_single_segmentation`, `plot_regimes`, and `regime_intervals`. Pipeline internals (`run_graph1`, Hamilton drivers, etc.) remain available but are not the supported entry point.
 
 Single-pass segmentation — shared by Graph 2 and the robustness/stability stages — and CLI feature loading are implemented as [Apache Hamilton](https://hamilton.apache.org/) dataflows under `gulfstream.pipelines.hamilton`.
 
@@ -19,7 +22,7 @@ uv pip install -e .
 
 ## Run
 
-The CLI separates *what* you analyze from *how* you analyze it. A **source YAML** (`--source-config`) defines the input data; an **algo YAML** (`--config`) defines detection settings and post-run metrics. Use `--mode` to pick `graph1`, `graph2`, or `legacy`. If you omit `--mode`, Graph 2 is selected automatically when the config contains a `retrain` section.
+The CLI separates *what* you analyze from *how* you analyze it. A **source YAML** (`--source-config`) defines the input data; an **algo YAML** (`--config`) defines detection settings and post-run metrics. Use `--mode` to pick `graph1` or `graph2`. If you omit `--mode`, Graph 2 is selected automatically when the config contains a `retrain` section.
 
 ```bash
 # Core path (deferred stages off), synthetic jump data
@@ -38,14 +41,14 @@ uv run python -m gulfstream.cli --mode graph2 --config config/graph2/full_graph2
 # Graph 2 interactive (stdin prompts for regime / features)
 uv run python -m gulfstream.cli --config config/graph2/graph2_interactive.yaml --source-config config/sources/synthetic.yaml
 
-# Legacy detectors (k-means / HDBSCAN / OPTICS / HMM smoke configs)
-uv run python -m gulfstream.cli --mode legacy --config config/legacy/legacy_kmeans.yaml --source-config config/sources/synthetic.yaml
-uv run python -m gulfstream.cli --mode legacy --config config/legacy/legacy_hdbscan.yaml --source-config config/sources/synthetic.yaml
-uv run python -m gulfstream.cli --mode legacy --config config/legacy/legacy_optics.yaml --source-config config/sources/synthetic.yaml
-uv run python -m gulfstream.cli --mode legacy --config config/legacy/legacy_hmm.yaml --source-config config/sources/synthetic.yaml
+# Classical hard-label detectors (Graph 1, detection_backend: classical)
+uv run python -m gulfstream.cli --mode graph1 --config config/graph1/classical_kmeans.yaml --source-config config/sources/synthetic.yaml
+uv run python -m gulfstream.cli --mode graph1 --config config/graph1/classical_hdbscan.yaml --source-config config/sources/synthetic.yaml
+uv run python -m gulfstream.cli --mode graph1 --config config/graph1/classical_optics.yaml --source-config config/sources/synthetic.yaml
+uv run python -m gulfstream.cli --mode graph1 --config config/graph1/classical_hmm.yaml --source-config config/sources/synthetic.yaml
 ```
 
-Dimred options for Graph 1, Graph 2, and legacy configs:
+Dimred options for Graph 1 / Graph 2 configs:
 
 | Method | Embedding emitted |
 |--------|-------------------|
@@ -87,7 +90,20 @@ Source configs under `config/sources/` map to the following loaders:
 
 ### Tutorial notebooks
 
-For a guided walkthrough on real DuckDB data, see [`notebooks/`](notebooks/). `01_ycs_zero_rates_workflow.ipynb` covers `zero_rates` and FX from `D:/data/duckdb/ycs_data.duckdb`; `02_equity_eod_workflow.ipynb` covers `equity_eod` from `D:/data/duckdb/equity_eod_data.duckdb`. Both run Graph 1 and Graph 2 with PCA, kernel PCA, and DMD. Launch instructions are in [`notebooks/README.md`](notebooks/README.md).
+For a guided walkthrough on real DuckDB data, see [`notebooks/`](notebooks/). `01_ycs_zero_rates_workflow.ipynb` covers `zero_rates` and FX from `D:/data/duckdb/ycs_data.duckdb`; `02_equity_eod_workflow.ipynb` covers `equity_eod` from `D:/data/duckdb/equity_eod_data.duckdb`. Both use the public API (`run_single_segmentation`, `refine_regimes`, `plot_regimes`) and walk through:
+
+| Part | Focus |
+|------|--------|
+| A–C | PCA / kPCA / DMD — Graph 1 + Graph 2 |
+| D | Binseg / BottomUp search (`SearchMethod`) |
+| E | `energy_distance` / `mmd_unbiased` tests (`StatTest`) |
+| F | ESS window hyperparameter |
+| G | Classical hard-label detectors (`detection_backend: classical`) + Graph 2 |
+| H | Classical models as soft dimred into `kernel_ruptures` |
+| I | TFT attention embeddings as dimred (+ optional Graph 2) |
+| — | Comparison: covering + breakpoint F1 vs PCA baseline |
+
+Launch instructions are in [`notebooks/README.md`](notebooks/README.md).
 
 Run outputs land under `outputs/metrics/` and `outputs/logs/`.
 
@@ -95,7 +111,7 @@ Run outputs land under `outputs/metrics/` and `outputs/logs/`.
 
 ## Workflow
 
-A single CLI entry loads data once, then dispatches to Graph 1, Graph 2, or legacy mode.
+A single CLI entry loads data once, then dispatches to Graph 1 or Graph 2.
 
 ### Entry call path
 
@@ -107,10 +123,12 @@ flowchart TD
   loadSrc --> mode
   mode -->|graph1| g1["run_graph1"]
   mode -->|graph2| g2["run_graph2"]
-  mode -->|legacy| leg["run_legacy"]
-  g1 --> out1["outputs/metrics + gallery"]
+  g1 --> backend{"algo.detection_backend"}
+  backend -->|kernel_ruptures| core["RFF + ruptures + tests"]
+  backend -->|classical| clas["detectors hard labels"]
+  core --> out1["outputs/metrics + gallery"]
+  clas --> out1
   g2 --> out2["outputs/metrics + retrain heatmaps + gallery"]
-  leg --> out3["outputs/metrics + regime plot"]
 ```
 
 The split between `--source-config` and `--config` is deliberate: one file chooses the series, the other chooses the detector and which post-run metrics to emit. You can point the same algo YAML at synthetic smoke data or a DuckDB window without touching code.
@@ -127,7 +145,7 @@ flowchart TB
     df["Feature DataFrame"] --> dimred["PCA / kPCA / raw"]
     dimred --> rff["Kernel feature map RFF"]
     rff --> rupt["Ruptures candidates"]
-    rupt --> mmd["MMD statistical tests"]
+    rupt --> mmd["Stat tests (MMD / energy)"]
     mmd --> post["Post-process majority vote / min length"]
     post --> res["SegmentResults"]
   end
@@ -200,22 +218,21 @@ Graph 1 is the global search. Graph 2 is local refinement: it repeatedly calls t
 ```text
 gulfstream/
 ├── config/
-│   ├── graph1/             # default_core, full_graph1, graph1_*_dimred
+│   ├── graph1/             # default_core, full_graph1, classical_*, graph1_*_dimred
 │   ├── graph2/             # full_graph2, graph2_interactive
-│   ├── legacy/             # legacy_*.yaml
 │   └── sources/            # synthetic, duckdb, parquet, csv, ...
 ├── src/gulfstream/
 │   ├── api.py              # Public programmatic façade
 │   ├── cli.py              # Entry: load configs → dispatch mode
 │   ├── common/             # frames, results, utils, options (enums), config (pydantic)
 │   ├── data/               # source_loader, synth, feature_generation
-│   ├── pipelines/          # graph1, graph2/, legacy, single_pass, _shared
+│   ├── pipelines/          # graph1, graph2/, classical, single_pass, _shared
 │   │   └── hamilton/       # Apache Hamilton DAGs (segmentation, load_features)
 │   ├── detection/          # algorithm, stat_tests, time_index, trees, hyperparams, postprocess
 │   ├── dimred/             # dispatcher, classical/*, model_based/, density
 │   ├── features/           # kernel_map, names
 │   ├── metrics/            # evaluation, plots, insights, explainability, robustness, ...
-│   └── legacy/detectors/   # kmeans, hmm, hdbscan, optics, msar, ruptures, ...
+│   └── detectors/          # kmeans, hmm, hdbscan, optics, msar, ruptures, wasserstein, tft
 └── outputs/
     ├── metrics/            # PNGs, Excel, gallery.html
     └── logs/
@@ -228,11 +245,11 @@ gulfstream/
 | **API / CLI** | `gulfstream.api` for programmatic use; CLI parses `--config`, `--source-config`, `--mode` and materializes `${IMG_DIR}` / `${LOG_DIR}`. |
 | **Config** | Pydantic `Config` models + `StrEnum` options (`common/config.py`, `common/options.py`). YAML keys unchanged. |
 | **Data** | Build a dated feature matrix from DuckDB/SQLite, parquet/CSV, or synthetic/faker generators. No detection logic. |
-| **Pipelines** | Mode orchestrators (`run_graph1` / `run_graph2` / `run_legacy`) plus shared helpers and `single_pass`. Linear core via Hamilton. |
-| **Detection** | Ruptures search (PELT / Binseg / BottomUp) + MMD / energy tests + hyperparams + postprocess. |
+| **Pipelines** | Mode orchestrators (`run_graph1` / `run_graph2`) plus classical backend helper and `single_pass`. Linear kernel core via Hamilton. |
+| **Detection** | Ruptures search (PELT / Binseg / BottomUp) + MMD / energy tests + hyperparams + postprocess; or classical hard-label detectors. |
 | **Dimred / features** | Classical and model-based embeddings; RFF / Nyström maps. |
 | **Metrics** | Evaluation (covering, F1, recovery), heatmaps, trees, explainability, transitions, robustness, stability. |
-| **Legacy detectors** | Classical labelers (also reused as model-based dimred). |
+| **Detectors** | Hard-label classical detectors (also reused as model-based dimred helpers). |
 | **Outputs** | Timestamped `bkpt_tests_*` dirs under `outputs/metrics/`, plus logs under `outputs/logs/`. |
 
 ### Key result type
@@ -241,14 +258,39 @@ Runs accumulate into `SegmentResults`: breakpoints (`bkpts`), invalid breakpoint
 
 ### Config split
 
-Algo configs (`config/graph1|graph2|legacy/*.yaml`) hold `algo`, `test`, `metrics`, and optional `robustness`, `stability`, `retrain`, and `log` sections. Source configs (`config/sources/*.yaml`) describe only how to load or generate the feature DataFrame. That separation lets you reuse the same detector settings across synthetic smoke data and production DuckDB extracts without code changes.
+Algo configs (`config/graph1|graph2/*.yaml`) hold `algo`, `test`, `metrics`, and optional `robustness`, `stability`, `retrain`, and `log` sections. Source configs (`config/sources/*.yaml`) describe only how to load or generate the feature DataFrame. That separation lets you reuse the same detector settings across synthetic smoke data and production DuckDB extracts without code changes.
+
+Set `algo.detection_backend: [classical]` and `algo.regime_detection_algorithm: [kmeans|hmm|…]` for hard-label Graph 1 (see `config/graph1/classical_*.yaml`). Default is `kernel_ruptures`.
 
 ### Programmatic API
 
+Import from the package root — all functions accept a pydantic `Config` or a plain params dict (validated via `coerce_params`):
+
+| Function | Role |
+|----------|------|
+| `load_features(source_yaml, project_root=…)` | Load a dated feature matrix from a source YAML |
+| `detect_regimes(df, config)` | Run full Graph 1 (grid driver; may write artifacts per `metrics.mode`) |
+| `run_single_segmentation(df, config)` | One Graph 1 pass in memory — used by Graph 2 and notebooks |
+| `refine_regimes(df, config, seed=…)` | Run Graph 2; seed from `SegmentResults` or a `regimes_df` |
+| `seed_regimes_from_results(df, results)` | Build Start/End/Regime table from Graph 1 output |
+| `plot_regimes(df, results, variables=…)` | Regime-shaded feature plots |
+| `regime_intervals(results, dates)` | Start/End/Regime table from breakpoint hierarchy |
+
+Typed option enums live in `gulfstream.common.options` (`SearchMethod`, `StatTest`, `DimredMethod`, `DetectionBackend`, `ClassicalDetector`, …). YAML keys are unchanged; enums are optional in Python.
+
 ```python
 from pathlib import Path
-from gulfstream import load_features, detect_regimes, refine_regimes, plot_regimes
+
+from gulfstream import (
+    load_features,
+    plot_regimes,
+    refine_regimes,
+    regime_intervals,
+    run_single_segmentation,
+    seed_regimes_from_results,
+)
 from gulfstream.common import utils
+from gulfstream.common.options import SearchMethod, StatTest
 
 root = Path(".")
 params = utils.read_config_yaml(
@@ -256,18 +298,31 @@ params = utils.read_config_yaml(
     img_dir=str(root / "outputs/metrics"),
     log_dir=str(root / "outputs/logs"),
 )
+params["test_num"] = 0  # single grid point for notebooks / quick runs
+
 df = load_features("config/sources/synthetic.yaml", project_root=root)
-res = detect_regimes(df, params)
+
+# Graph 1 — fast single pass (no full grid)
+res = run_single_segmentation(df, params)
+regime_intervals(res, df["date"].to_list())
+
+# Graph 1 — swap search / test knobs in Python
+params_binseg = params.copy()
+params_binseg["algo"] = {**params["algo"], "search_method": [SearchMethod.BINSEG]}
+params_energy = params.copy()
+params_energy["test"] = {**params["test"], "choice": [StatTest.ENERGY_DISTANCE]}
+
+# Graph 2 — seed from Graph 1
 g2 = utils.read_config_yaml(
     "config/graph2/full_graph2.yaml",
     img_dir=str(root / "outputs/metrics"),
     log_dir=str(root / "outputs/logs"),
 )
 refined = refine_regimes(df, g2, seed=res)
-plot_regimes(df, refined or res)
+plot_regimes(df, refined or res, variables=["feature_0"], title="Regimes")
 ```
 
-Prefer `gulfstream.api` over importing pipeline internals. Single-pass segmentation without the grid driver is available as `run_single_segmentation`.
+Prefer `import gulfstream` over pipeline internals (`run_graph1`, Hamilton nodes, etc.).
 
 ### Glossary
 
@@ -277,23 +332,90 @@ Prefer `gulfstream.api` over importing pipeline internals. Single-pass segmentat
 | **dimred** | Dimensionality reduction step before the kernel map |
 | **RFF** | Random Fourier Features approximating an RBF kernel |
 | **MMD** | Maximum Mean Discrepancy two-sample test |
-| **PELT / Binseg / BottomUp** | Ruptures search methods for candidate breakpoints |
+| **energy_distance** | Distribution-free two-sample test (no kernel bandwidth) |
+| **PELT / Binseg / BottomUp** | Ruptures search methods for candidate breakpoints (`algo.search_method`) |
+| **detection_backend** | `kernel_ruptures` (default) or `classical` hard-label detectors |
+| **classical detector** | k-means / HMM / HDBSCAN / … via `algo.regime_detection_algorithm` |
+| **ESS window** | Data-driven MMD window from effective sample size (`test.window.method: ess`) |
+| **covering / F1** | Breakpoint-set metrics: interval covering and precision/recall/F1 with tolerance |
 | **regimes_df** | Start/End/Regime(+ hierarchy) table used to seed Graph 2 |
 
 ---
 
-## Statistical methods roadmap
+## Statistical methods
 
-### Implemented
+Detection is configured under `algo` (search + dimred + backend) and `test` (validation for kernel_ruptures). Evaluation metrics are in `gulfstream.metrics.evaluation`.
 
-| Level | Methods |
-|-------|---------|
-| Search | PELT (default), Binseg, BottomUp via `algo.search_method` |
-| Tests | `mmd_no_ts`, `mmd_ts`, `mmd_perm`, `mmd_unbiased`, `energy_distance` |
-| Window HP | `user_specified`, `ess` (effective-sample-size heuristic) |
-| Metrics | recovery rate, Hausdorff, covering, breakpoint precision/recall/F1 |
+### Detection backend (`algo.detection_backend`)
 
-### Suggested next
+| Backend | YAML value | Notes |
+|---------|------------|-------|
+| Kernel ruptures | `kernel_ruptures` | Default — RFF → ruptures → MMD/energy |
+| Classical | `classical` | Hard labels from `regime_detection_algorithm` |
+
+```yaml
+algo:
+  detection_backend: [classical]
+  regime_detection_algorithm: [kmeans]  # hmm | hdbscan | optics | …
+  regimes: [3]
+```
+
+### Search (`algo.search_method`)
+
+| Method | YAML value | Notes |
+|--------|------------|-------|
+| PELT | `pelt` | Default — exact segmentation with penalty |
+| Binary segmentation | `binseg` | Greedy top-down splits |
+| Bottom-up | `bottomup` | Agglomerative merge of segments |
+
+```yaml
+algo:
+  search_method: [binseg]   # or [bottomup]
+```
+
+### Tests (`test.choice`)
+
+| Test | YAML value | Notes |
+|------|------------|-------|
+| MMD (no time series) | `mmd_no_ts` | Default |
+| MMD (time series) | `mmd_ts` | Accounts for temporal structure |
+| MMD (permutation) | `mmd_perm` | Permutation-based p-value |
+| Unbiased MMD | `mmd_unbiased` | U-statistic MMD estimator |
+| Energy distance | `energy_distance` | No RBF bandwidth; good when kernel tuning is awkward |
+
+```yaml
+test:
+  choice: [energy_distance]   # or [mmd_unbiased]
+```
+
+### Window hyperparameters (`test.window`)
+
+| Method | YAML | Notes |
+|--------|------|-------|
+| Fixed | `method: user_specified`, `window: 40` | Default in `default_core.yaml` |
+| ESS heuristic | `method: ess`, `ess_fraction`, `min_window`, `max_window` | Scales window from effective sample size |
+
+```yaml
+test:
+  window:
+    - method: ess
+      ess_fraction: 0.25
+      min_window: 20
+      max_window: 100
+```
+
+### Evaluation metrics
+
+| Metric | Function | Use |
+|--------|----------|-----|
+| Recovery rate | `recovery_rate` | Fraction of true breaks recovered |
+| Hausdorff distance | (internal; used in robustness/stability) | Set distance between breakpoint lists |
+| Covering | `covering_metric` | Interval overlap between two segmentations |
+| Breakpoint F1 | `breakpoint_precision_recall_f1` | Precision / recall / F1 with day tolerance |
+
+Notebooks compare runs with `covering_metric` and `breakpoint_precision_recall_f1` against a PCA baseline.
+
+### Roadmap (suggested next)
 
 | Level | Candidates |
 |-------|------------|

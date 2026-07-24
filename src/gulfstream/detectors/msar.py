@@ -10,7 +10,7 @@ from sklearn.decomposition import PCA
 from gulfstream.common import frames
 from gulfstream.common import utils
 from gulfstream.common.results import AlgoResults
-from gulfstream.legacy.detectors import common_validation as common
+from gulfstream.detectors import common_validation as common
 
 
 def msar_predict_regimes(df: pl.DataFrame, regimes: int, **kwargs) -> AlgoResults:

@@ -1,4 +1,4 @@
-"""Gulfstream — regime detection pipelines (Graph 1 / Graph 2 / legacy)."""
+"""Gulfstream — regime detection pipelines (Graph 1 / Graph 2)."""
 
 from gulfstream.api import (
     Config,
@@ -7,7 +7,6 @@ from gulfstream.api import (
     plot_regimes,
     refine_regimes,
     regime_intervals,
-    run_legacy_detector,
     run_single_segmentation,
     seed_regimes_from_results,
 )
@@ -20,7 +19,6 @@ __all__ = [
     "load_features",
     "detect_regimes",
     "refine_regimes",
-    "run_legacy_detector",
     "plot_regimes",
     "regime_intervals",
     "run_single_segmentation",

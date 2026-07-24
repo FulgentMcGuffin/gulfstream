@@ -56,6 +56,26 @@ class SearchMethod(StrEnum):
     BOTTOMUP = "bottomup"
 
 
+class DetectionBackend(StrEnum):
+    """Graph 1 / Graph 2 detection backend (``algo.detection_backend``)."""
+
+    KERNEL_RUPTURES = "kernel_ruptures"
+    CLASSICAL = "classical"
+
+
+class ClassicalDetector(StrEnum):
+    """Hard-label classical detectors (``algo.regime_detection_algorithm``)."""
+
+    BAYESIAN_GMM = "bayesian_gmm"
+    HMM = "hmm"
+    KMEANS = "kmeans"
+    HDBSCAN = "hdbscan"
+    OPTICS = "optics"
+    MSAR = "msar"
+    RUPTURES = "ruptures"
+    WASSERSTEIN = "wasserstein"
+
+
 class PostProcessing(StrEnum):
     """Breakpoint post-processing methods (``algo.post_processing_method``)."""
 

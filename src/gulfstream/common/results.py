@@ -10,7 +10,7 @@ import polars as pl
 
 @dataclass
 class AlgoResults:
-    """Legacy algorithm results."""
+    """Hard-label classical detector results (labels → breakpoints)."""
 
     bkpts: list[int]
     labels: list[int]

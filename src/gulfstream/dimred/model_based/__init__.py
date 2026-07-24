@@ -1,7 +1,7 @@
 """Model-based dimred backends: Bayesian GMM, HMM, k-means, HDBSCAN, OPTICS,
 MSAR, Wasserstein, ruptures, and TFT.
 
-These reuse the legacy detector models but emit continuous embeddings
+These reuse classical detector models but emit continuous embeddings
 (soft responsibilities / distances / attention) so Graph 1 / Graph 2 can
 treat them like PCA/kPCA/raw/DMD/t-SNE/UMAP.
 """

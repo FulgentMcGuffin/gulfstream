@@ -210,8 +210,8 @@ def pcafeature_map_generator(df: pl.DataFrame, params: dict):
         yield list(objects)
 
 
-def legacy_feature_map_generator(df: pl.DataFrame, params: dict):
-    """Generate kernel feature mappings for legacy regime detection.
+def classical_feature_map_generator(df: pl.DataFrame, params: dict):
+    """Generate kernel feature mappings for classical hard-label detectors.
 
     Differs from ``feature_map_generator`` by:
     1. Emitting only one mapping per parameter combination.
@@ -241,3 +241,7 @@ def legacy_feature_map_generator(df: pl.DataFrame, params: dict):
                 num_features=num_features,
                 kernel_approx_error=num_features_res.get("kernel_approx_error"),
             )
+
+
+# Back-compat alias
+legacy_feature_map_generator = classical_feature_map_generator

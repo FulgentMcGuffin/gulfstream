@@ -1,7 +1,7 @@
 """Temporal Fusion Transformer helpers (optional heavy deps).
 
 pytorch_forecasting / lightning / mlflow are imported lazily so the rest of
-the legacy package can load without them. Call any function here only when
+the detectors package can load without them. Call any function here only when
 those packages are installed.
 
 Feature prep is done in polars; conversion to pandas happens only at the

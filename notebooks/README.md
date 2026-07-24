@@ -13,6 +13,9 @@ Each notebook:
 - **Part D** — Binseg / BottomUp search
 - **Part E** — `energy_distance` / `mmd_unbiased` tests
 - **Part F** — ESS window hyperparameter
+- **Part G** — Classical hard-label detectors (`detection_backend: classical`; former legacy mode) + Graph 2 seed
+- **Part H** — Classical models as soft dimred into `kernel_ruptures`
+- **Part I** — TFT attention embeddings as dimred (optional Graph 2; needs torch/lightning/pytorch-forecasting)
 - **Comparison** — covering + breakpoint F1 vs the PCA baseline
 
 ```bash

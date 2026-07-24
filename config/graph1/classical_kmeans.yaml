@@ -1,11 +1,11 @@
 algo:
+  detection_backend: [classical]
   dimred: [raw]
   feature_map_approx_method: [raw]
-  regime_detection_algorithm: [optics]
-  optics_min_samples: [10]
-  optics_xi: [0.05]
-  optics_cluster_method: [xi]
-  post_processing_method: [no_post_processing]
+  regime_detection_algorithm: [kmeans]
+  regimes: [3]
+  random_state: [42]
+  post_processing_method: [nopost_processing]
   min_regime_length: [1]
   include_last_regime: [true]
 
@@ -15,7 +15,6 @@ metrics:
   plot: true
   explainability_features: ["__auto__"]
   features_to_plot: ["__auto__"]
-  regime_cluster_algorithms: [kmeans, hdbscan, optics]
 
 log:
   dir: ${LOG_DIR}

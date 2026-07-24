@@ -63,7 +63,7 @@ def get_regime_intervals(bkpt_hierarchy: dict, index) -> pl.DataFrame:
     )
 
 
-def get_regime_intervals_legacy(labels: list[int], index) -> pl.DataFrame:
+def get_regime_intervals_from_labels(labels: list[int], index) -> pl.DataFrame:
     """Build intervals from a contiguous label sequence."""
     if not labels:
         return pl.DataFrame(schema={"Start": pl.Object, "End": pl.Object, "Regime": pl.Int64})
@@ -77,6 +77,10 @@ def get_regime_intervals_legacy(labels: list[int], index) -> pl.DataFrame:
             current = labels[i]
     rows.append({"Start": index[start], "End": index[len(labels) - 1], "Regime": current})
     return pl.DataFrame(rows)
+
+
+# Back-compat alias
+get_regime_intervals_legacy = get_regime_intervals_from_labels
 
 
 def convert_results(

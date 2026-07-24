@@ -1,4 +1,4 @@
-"""Shared input validators for legacy regime detection methods."""
+"""Shared input validators for classical regime detection methods."""
 from __future__ import annotations
 
 import logging

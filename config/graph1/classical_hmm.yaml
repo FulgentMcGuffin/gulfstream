@@ -1,12 +1,12 @@
 algo:
+  detection_backend: [classical]
   dimred: [raw]
   feature_map_approx_method: [raw]
-  regime_detection_algorithm: [hdbscan]
-  hdbscan_min_cluster_size: [15]
-  hdbscan_min_samples: [5]
-  hdbscan_metric: [euclidean]
-  hdbscan_allow_single_cluster: [true]
-  post_processing_method: [no_post_processing]
+  regime_detection_algorithm: [hmm]
+  hmm_emissions: [gaussian]
+  regimes: [3]
+  hmm_n_iter: [50]
+  post_processing_method: [nopost_processing]
   min_regime_length: [1]
   include_last_regime: [true]
 
@@ -16,7 +16,6 @@ metrics:
   plot: true
   explainability_features: ["__auto__"]
   features_to_plot: ["__auto__"]
-  regime_cluster_algorithms: [kmeans, hdbscan, optics]
 
 log:
   dir: ${LOG_DIR}

@@ -178,8 +178,8 @@ def post_process(
     return convert_results(processed, length)
 
 
-def legacy_post_processing_params_generator(params: dict) -> Iterator[dict]:
-    """Yield post-processing param dicts for legacy (non-interval) methods."""
+def classical_post_processing_params_generator(params: dict) -> Iterator[dict]:
+    """Yield post-processing param dicts for classical (hard-label) methods."""
     methods = params["algo"].get(
         "post_processing_method", [PostProcessing.NO_POST_PROCESSING]
     )
@@ -187,21 +187,28 @@ def legacy_post_processing_params_generator(params: dict) -> Iterator[dict]:
     include_last = params["algo"].get("include_last_regime", [True])
 
     for method in methods:
-        if method == PostProcessing.MAJORITY_VOTING:
+        # Accept YAML alias "no_post_processing" as nopost_processing
+        method_s = str(method)
+        if method_s in ("no_post_processing", "nopost_processing"):
+            method = PostProcessing.NO_POST_PROCESSING
+        if method == PostProcessing.MAJORITY_VOTING or method_s == "majority_voting":
             for ml, il in itertools.product(min_lens, include_last):
                 yield {
-                    "post_processing_method": method,
+                    "post_processing_method": PostProcessing.MAJORITY_VOTING,
                     "min_regime_length": ml,
                     "include_last_regime": il,
                 }
-        elif method == PostProcessing.NEIGHBOR_COMPARISON:
+        elif method == PostProcessing.NEIGHBOR_COMPARISON or method_s == "neighbor_comparison":
             for ml in min_lens:
-                yield {"post_processing_method": method, "min_regime_length": ml}
+                yield {
+                    "post_processing_method": PostProcessing.NEIGHBOR_COMPARISON,
+                    "min_regime_length": ml,
+                }
         else:
             yield {"post_processing_method": method}
 
 
-def _legacy_majority_voting(
+def _classical_majority_voting(
     res: AlgoResults,
     *,
     length: int,
@@ -230,20 +237,23 @@ def _legacy_majority_voting(
     return AR(bkpts=kept, labels=labels, params=res.params)
 
 
-def legacy_post_process(
+def classical_post_process(
     *,
     res,
     processing_params: dict,
     params: dict,
     length: int,
     df_dimred: pl.DataFrame,
-) -> AlgoResults:
-    """Post-process legacy AlgoResults and remap to original series length."""
+) -> SegmentResults:
+    """Post-process classical AlgoResults and remap to SegmentResults."""
     from gulfstream.common.results import AlgoResults as AR
 
     method = processing_params.get(
         "post_processing_method", PostProcessing.NO_POST_PROCESSING
     )
+    method_s = str(method)
+    if method_s in ("no_post_processing", "nopost_processing"):
+        method = PostProcessing.NO_POST_PROCESSING
     work_len = df_dimred.height
     if method == PostProcessing.NO_POST_PROCESSING:
         processed = AR(
@@ -252,7 +262,7 @@ def legacy_post_process(
             params=res.params,
         )
     elif method == PostProcessing.MAJORITY_VOTING:
-        processed = _legacy_majority_voting(
+        processed = _classical_majority_voting(
             res,
             length=work_len,
             min_regime_length=int(processing_params.get("min_regime_length", 1)),
@@ -260,9 +270,41 @@ def legacy_post_process(
         )
     else:
         logger.warning(
-            "Legacy post-processing method %s not fully implemented; passing through.",
+            "Classical post-processing method %s not fully implemented; passing through.",
             method,
         )
         processed = res
 
-    return convert_results(processed, length)
+    converted = convert_results(processed, length)
+    return algo_results_to_segment(converted)
+
+
+def algo_results_to_segment(res: AlgoResults | SegmentResults) -> SegmentResults:
+    """Normalize classical AlgoResults into SegmentResults."""
+    if isinstance(res, SegmentResults):
+        hierarchy = res.hierarchy or {b: 1 for b in res.bkpts}
+        return SegmentResults(
+            bkpts=list(res.bkpts),
+            invalid_bkpts=list(res.invalid_bkpts or []),
+            stats=dict(res.stats or {}),
+            hierarchy=hierarchy,
+            labels=list(res.labels) if res.labels is not None else None,
+            params=res.params,
+            persistence=dict(res.persistence or {}),
+            low_confidence_bkpts=list(res.low_confidence_bkpts or []),
+            stability_score=res.stability_score,
+        )
+    hierarchy = {b: 1 for b in res.bkpts}
+    return SegmentResults(
+        bkpts=list(res.bkpts),
+        invalid_bkpts=[],
+        stats={},
+        hierarchy=hierarchy,
+        labels=list(res.labels) if res.labels is not None else None,
+        params=res.params,
+    )
+
+
+# Back-compat aliases
+legacy_post_processing_params_generator = classical_post_processing_params_generator
+legacy_post_process = classical_post_process

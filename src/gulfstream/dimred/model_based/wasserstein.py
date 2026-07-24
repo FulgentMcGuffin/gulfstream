@@ -1,4 +1,4 @@
-"""Wasserstein model-based dimred (delegates to legacy.detectors.wasserstein)."""
+"""Wasserstein model-based dimred (delegates to detectors.wasserstein)."""
 from __future__ import annotations
 
 import logging
@@ -9,7 +9,7 @@ import polars as pl
 from gulfstream.common.options import DimredMethod
 from gulfstream.common.results import DimredResults
 from gulfstream.dimred.model_based._common import _as_frame, _require_regimes
-from gulfstream.legacy.detectors import wasserstein as wass_mod
+from gulfstream.detectors import wasserstein as wass_mod
 
 logger = logging.getLogger(__name__)
 

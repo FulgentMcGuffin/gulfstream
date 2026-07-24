@@ -86,7 +86,7 @@ def map_labels_to_ordered_integers(labels: list) -> list:
 
 
 def _map_labels_to_ordered_integers(labels: list) -> list:
-    """Alias used by legacy regime detection methods."""
+    """Alias used by classical regime detection methods."""
     return map_labels_to_ordered_integers(labels)
 
 

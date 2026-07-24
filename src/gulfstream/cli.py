@@ -1,4 +1,4 @@
-"""CLI entry for Graph 1 / Graph 2 / legacy regime pipelines."""
+"""CLI entry for Graph 1 / Graph 2 regime pipelines."""
 from __future__ import annotations
 
 import argparse
@@ -8,7 +8,6 @@ from pathlib import Path
 from gulfstream.common import frames, utils
 from gulfstream.pipelines import graph1, graph2
 from gulfstream.pipelines.hamilton.driver import load_features
-from gulfstream.pipelines.legacy import run_legacy
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +17,7 @@ def _project_root() -> Path:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(description="Gulfstream Graph 1 / Graph 2 / legacy regime pipeline")
+    p = argparse.ArgumentParser(description="Gulfstream Graph 1 / Graph 2 regime pipeline")
     p.add_argument(
         "--config",
         type=Path,
@@ -33,7 +32,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument(
         "--mode",
-        choices=["graph1", "graph2", "legacy"],
+        choices=["graph1", "graph2"],
         default=None,
         help="Pipeline mode. Default: graph2 if config has 'retrain', else graph1.",
     )
@@ -97,8 +96,6 @@ def main(argv: list[str] | None = None) -> int:
     )
     if mode == "graph2":
         graph2.run_graph2(df, params)
-    elif mode == "legacy":
-        run_legacy(df, params)
     else:
         graph1.run_graph1(df, params)
     return 0

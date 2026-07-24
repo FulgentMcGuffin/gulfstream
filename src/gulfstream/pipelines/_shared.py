@@ -1,4 +1,4 @@
-"""Helpers shared by Graph 1, Graph 2, and legacy pipelines."""
+"""Helpers shared by Graph 1 and Graph 2 pipelines."""
 from __future__ import annotations
 
 import datetime as dt
