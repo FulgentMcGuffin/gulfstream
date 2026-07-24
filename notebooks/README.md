@@ -4,8 +4,8 @@ Walkthroughs using the public `gulfstream` API on real DuckDB tables.
 
 | Notebook | Data |
 |----------|------|
-| [`01_ycs_zero_rates_workflow.ipynb`](01_ycs_zero_rates_workflow.ipynb) | `zero_rates` (+ FX) in `D:/data/duckdb/ycs_data.duckdb` |
-| [`02_equity_eod_workflow.ipynb`](02_equity_eod_workflow.ipynb) | `equity_eod` in `D:/data/duckdb/equity_eod_data.duckdb` |
+| [`01_ycs_zero_rates_workflow.ipynb`](01_ycs_zero_rates_workflow.ipynb) | User supplied yield curve and FX data |
+| [`02_equity_eod_workflow.ipynb`](02_equity_eod_workflow.ipynb) | User supplied equity data |
 
 Each notebook:
 
@@ -22,7 +22,7 @@ uv run jupyter lab notebooks
 
 Or open the `.ipynb` files in Cursor / VS Code with the project `.venv`.
 
-Artifacts land under `outputs/notebooks/{ycs,equity}/…` (Part K under `…/product/`, Part L under `…/graph2_scores/`). Close DBeaver before the equity notebook if the DuckDB file is locked (falls back to `equity_eod_data_copy.duckdb` when present).
+Artifacts land under `outputs/notebooks/{ycs,equity}/…` (Part K under `…/product/`, Part L under `…/graph2_scores/`). Close any client that has the equity DuckDB file open if the notebook cannot acquire a read lock.
 
 YCS source settings live in `config/sources/notebook_ycs.yaml`.
 

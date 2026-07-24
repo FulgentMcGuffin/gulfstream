@@ -129,7 +129,7 @@ Source configs under `config/sources/` map to the following loaders:
 
 ### Tutorial notebooks
 
-For a guided walkthrough on real DuckDB data, see [`notebooks/`](notebooks/). `01_ycs_zero_rates_workflow.ipynb` covers `zero_rates` and FX from `D:/data/duckdb/ycs_data.duckdb`; `02_equity_eod_workflow.ipynb` covers `equity_eod` from `D:/data/duckdb/equity_eod_data.duckdb`. Both use the public API (`run_single_segmentation`, `refine_regimes`, `plot_regimes`, plus streaming / panel helpers in Part K) and walk through:
+For a guided walkthrough on real DuckDB data, see [`notebooks/`](notebooks/). `01_ycs_zero_rates_workflow.ipynb` covers user supplied yield curve and FX data; `02_equity_eod_workflow.ipynb` covers user supplied equity data. Both use the public API (`run_single_segmentation`, `refine_regimes`, `plot_regimes`, plus streaming / panel helpers in Part K) and walk through:
 
 | Part | Focus |
 |------|--------|
