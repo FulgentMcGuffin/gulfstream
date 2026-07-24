@@ -1,3 +1,5 @@
+# Graph 2 with MMD split heatmap (aligned with Graph 1 kernel tests).
+# Default linear-time MMD; use mmd_estimator: unbiased for Gretton U-statistic.
 algo:
   dimred: [pca]
   rank_selection_method: [explained_variance]
@@ -34,18 +36,8 @@ metrics:
   mode: write
   dir: ${IMG_DIR}
   plot: true
-  num_samples: 100
-  num_features: 5
-  num_components: 3
-  num_shap: 5
-  num_top_features_for_distances: 5
-  requested_features_for_distances: []
   explainability_features: ["__auto__"]
   features_to_plot: ["__auto__"]
-  warn_threshold: 0.5
-  exp_tree_accuracy: [0.9]
-  exp_tree_bps_decimals: false
-  developer_mode: false
 
 log:
   dir: ${LOG_DIR}
@@ -53,31 +45,20 @@ log:
 
 robustness:
   enabled: false
-  perturbations:
-    depth: [1, 2]
-    significance_level: [0.05, 0.1]
-    min_regime_length: [20, 40]
-  match_tolerance: 5
-  low_persistence_threshold: 0.5
 
 stability:
   enabled: false
-  leave_one_source_out: true
-  leave_one_tenor_out: true
-  time_windows:
-    mode: expanding
-    min_frac: 0.5
-  match_tolerance: 5
-  stability_floor: 0.4
 
 retrain:
   interactive: false
   features: ["__auto__"]
   num_worst_features: 5
-  # Feature×regime heatmap used to pick the next slice (default = legacy L2).
-  # Threshold is in the chosen score's units — retune when switching methods.
-  score_method: mse_to_mean
-  score: {}
+  score_method: mmd_split
+  score:
+    n_splits: 5
+    min_side: 10
+    max_rows: 80
+    mmd_estimator: linear   # linear | biased | unbiased
   threshold: 0.01
   max_iter: 10
   regimes_df: null

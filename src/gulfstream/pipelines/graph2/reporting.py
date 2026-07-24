@@ -12,7 +12,6 @@ import polars as pl
 from gulfstream.common import utils
 from gulfstream.common.results import SegmentResults
 from gulfstream.detection import time_index as bkpt_timeindexing_conversions
-from gulfstream.metrics import evaluation as evaluation_tools
 from gulfstream.metrics import insights as post_information_visualization
 from gulfstream.metrics import writers as results_writers
 from gulfstream.pipelines._shared import produce_all_metrics
@@ -40,16 +39,26 @@ def _heatmap_helper(
     bkpts: list[int],
     iters: int,
     image_dir: str,
+    *,
+    score_method: str = "mse_to_mean",
+    score_kwargs: dict | None = None,
 ) -> tuple[np.ndarray, tuple[int, int]]:
-    logger.info("Generating L2 error matrix.")
-    loss_matrix = evaluation_tools.avg_features_loss(df, bkpts)
-    name = f"retrain_iteration_{iters}_avg_feature_L2"
+    from gulfstream.metrics import regime_scores
+
+    score_kwargs = score_kwargs or {}
+    meta = regime_scores.score_meta(score_method)
+    logger.info("Generating %s error matrix.", meta["log_name"])
+    loss_matrix = regime_scores.score_feature_regime(
+        df, bkpts, score_method, **score_kwargs
+    )
+    # mse_to_mean keeps the legacy ``..._avg_feature_L2`` gallery name.
+    name = f"retrain_iteration_{iters}_{meta['gallery_suffix']}"
     post_information_visualization.draw_error_heatmaps(
         loss_matrix,
         df,
         bkpts,
-        title=f"Retrain {iters}: Average daily L2 loss per feature in each regime (in bps)",
-        cbar_label="average L2 dist to mean (measured in bps)",
+        title=f"Retrain {iters}: {meta['title']}",
+        cbar_label=meta["cbar"],
         mode="write",
         img_dir=image_dir,
         gallery_filename=name,

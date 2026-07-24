@@ -136,9 +136,19 @@ def _targeted_retrain(df_full: pl.DataFrame, params: dict) -> SegmentResults | N
             return None
         df_filtered = frames.select_features(df_full, features)
 
+        score_method = str(
+            (params.get("retrain") or {}).get("score_method", "mse_to_mean")
+        )
+        score_kwargs = dict((params.get("retrain") or {}).get("score") or {})
+
         iters = 0
         loss_matrix, worst_index = _heatmap_helper(
-            df_filtered, processed_bkpts, iters, image_dir
+            df_filtered,
+            processed_bkpts,
+            iters,
+            image_dir,
+            score_method=score_method,
+            score_kwargs=score_kwargs,
         )
         worst_loss = float(loss_matrix[worst_index])
         num_worst_features = min(
@@ -194,7 +204,12 @@ def _targeted_retrain(df_full: pl.DataFrame, params: dict) -> SegmentResults | N
 
                 iters += 1
                 loss_matrix, worst_index = _heatmap_helper(
-                    df_filtered, processed_bkpts, iters, image_dir
+                    df_filtered,
+                    processed_bkpts,
+                    iters,
+                    image_dir,
+                    score_method=score_method,
+                    score_kwargs=score_kwargs,
                 )
                 worst_loss = float(loss_matrix[worst_index])
         else:
@@ -242,7 +257,12 @@ def _targeted_retrain(df_full: pl.DataFrame, params: dict) -> SegmentResults | N
 
                 iters += 1
                 loss_matrix, worst_index = _heatmap_helper(
-                    df_filtered, processed_bkpts, iters, image_dir
+                    df_filtered,
+                    processed_bkpts,
+                    iters,
+                    image_dir,
+                    score_method=score_method,
+                    score_kwargs=score_kwargs,
                 )
                 regime_raw = _get_user_requested_regime(
                     processed_bkpts, int(worst_index[1])

@@ -142,6 +142,8 @@ def img_gallery_filename(name: str, **kwargs) -> str:
         return lookup[name]
     if name.startswith("retrain") and name.endswith("avg_feature_L2"):
         return f"/{name}{IMG_EXT}"
+    if name.startswith("retrain_iteration_") and "_avg_feature_" in name:
+        return f"/{name}{IMG_EXT}"
     if name.endswith("exp_tree"):
         return f"/03_{name}{IMG_EXT}"
     if name.endswith("exp_tree_pickle"):

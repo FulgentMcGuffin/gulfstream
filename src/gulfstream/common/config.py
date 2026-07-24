@@ -25,6 +25,7 @@ from gulfstream.common.options import (
     RankSelection,
     RecursiveMethod,
     RegimeClusterAlgorithm,
+    RetrainScoreMethod,
     SearchMethod,
     StatTest,
 )
@@ -325,6 +326,10 @@ class RetrainConfig(BaseModel):
     threshold: float = 0.01
     max_iter: int = 10
     regimes_df: Any = None
+    # Feature×regime heatmap used to pick the next retrain slice.
+    # Threshold is in the chosen score's units — retune when switching methods.
+    score_method: RetrainScoreMethod | str = RetrainScoreMethod.MSE_TO_MEAN
+    score: dict[str, Any] = Field(default_factory=dict)
 
 
 class Config(BaseModel):

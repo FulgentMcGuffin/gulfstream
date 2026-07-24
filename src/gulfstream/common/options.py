@@ -192,6 +192,19 @@ class RegimeClusterAlgorithm(StrEnum):
     OPTICS = "optics"
 
 
+class RetrainScoreMethod(StrEnum):
+    """Graph 2 feature×regime retrain heatmap scorers (``retrain.score_method``)."""
+
+    MSE_TO_MEAN = "mse_to_mean"
+    MAD_TO_MEDIAN = "mad_to_median"
+    MSE_ON_DIFF = "mse_on_diff"
+    FACTOR_RESIDUAL = "factor_residual"
+    HOTELLING_WITHIN = "hotelling_within"
+    CUSUM_INTENSITY = "cusum_intensity"
+    ENERGY_SPLIT = "energy_split"
+    MMD_SPLIT = "mmd_split"
+
+
 def values(enum_cls: type[StrEnum]) -> list[str]:
     """Plain string values of an option enum (for messages and validators)."""
     return [str(m) for m in enum_cls]

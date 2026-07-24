@@ -5,7 +5,7 @@ Gulfstream implements pipelines for detecting structural breaks between time ser
 Three pipeline modes share one CLI / API surface:
 
 * **Graph 1** runs full regime detection end to end. Default backend (`algo.detection_backend: kernel_ruptures`): features → PCA/kPCA → RFF → ruptures (PELT / Binseg / BottomUp) → MMD or energy-distance tests → postprocess, then optional plots, insights, explainability, robustness, and stability. Set `detection_backend: classical` to use hard-label detectors (k-means, HDBSCAN, OPTICS, HMM, Bayesian GMM, MSAR, ruptures, Wasserstein) instead of the ruptures+MMD stack.
-* **Graph 2** wraps that core in a targeted retrain loop: build an L2 heatmap, pick the worst regime and features, detect on the slice, merge breakpoints, and repeat (works with either backend).
+* **Graph 2** wraps that core in a targeted retrain loop: build a feature×regime score heatmap (`retrain.score_method`, default L2), pick the worst regime and features, detect on the slice, merge breakpoints, and repeat (works with either backend).
 
 Classical detectors also appear as **soft dimred embeddings** (`algo.dimred: [kmeans|hmm|…]`) feeding the kernel_ruptures path — orthogonal to hard-label `detection_backend: classical`.
 
@@ -37,6 +37,10 @@ uv run python -m gulfstream.cli --config config/graph1/full_graph1.yaml --source
 # Graph 2 auto retrain (empty seed → heatmaps → merge until threshold / max_iter)
 uv run python -m gulfstream.cli --config config/graph2/full_graph2.yaml --source-config config/sources/synthetic.yaml
 uv run python -m gulfstream.cli --mode graph2 --config config/graph2/full_graph2.yaml --source-config config/sources/duckdb_smoke.yaml
+uv run python -m gulfstream.cli --mode graph2 --config config/graph2/graph2_score_diff.yaml --source-config config/sources/synthetic.yaml
+uv run python -m gulfstream.cli --mode graph2 --config config/graph2/graph2_score_factor.yaml --source-config config/sources/synthetic.yaml
+uv run python -m gulfstream.cli --mode graph2 --config config/graph2/graph2_score_energy.yaml --source-config config/sources/synthetic.yaml
+uv run python -m gulfstream.cli --mode graph2 --config config/graph2/graph2_score_mmd.yaml --source-config config/sources/synthetic.yaml
 
 # Graph 2 interactive (stdin prompts for regime / features)
 uv run python -m gulfstream.cli --config config/graph2/graph2_interactive.yaml --source-config config/sources/synthetic.yaml
@@ -211,21 +215,49 @@ Graph 2 does not define a separate detector. It wraps Graph 1's single-run path 
 
 ```mermaid
 flowchart LR
-  seed["Seed regimes_df may be empty"] --> heat["L2 feature x regime heatmap"]
+  seed["Seed regimes_df may be empty"] --> heat["feature x regime score heatmap"]
   heat --> pick["Select regime + features"]
   pick --> slice["run_single_segmentation on slice"]
   slice --> merge["Merge bkpts into hierarchy"]
   merge --> heat
 ```
 
-In **auto mode** (`retrain.interactive: false`), the loop continues while the maximum L2 loss exceeds `threshold` and `iters < max_iter`. Each iteration picks the worst regime and its top-`num_worst_features`, reruns detection on that slice, merges the result, and refreshes the heatmap. The loop stops early if a slice yields no new breakpoints.
+In **auto mode** (`retrain.interactive: false`), the loop continues while the maximum heatmap cell exceeds `threshold` and `iters < max_iter`. Each iteration picks the worst regime and its top-`num_worst_features`, reruns detection on that slice, merges the result, and refreshes the heatmap. The loop stops early if a slice yields no new breakpoints.
 
 In **interactive mode** (`retrain.interactive: true`), the same steps run, but you choose the regime and features from stdin. Type `q`, `quit`, `exit`, or `stop` to finish.
+
+#### Retrain score methods (`retrain.score_method`)
+
+The heatmap is a pluggable **feature × regime** score (higher = refine first). Default `mse_to_mean` is the legacy L2-to-regime-mean matrix. **`threshold` is in the chosen score’s units** — retune when switching methods. Method-specific knobs go under `retrain.score`.
+
+| `score_method` | Measures | Good for |
+|----------------|----------|----------|
+| `mse_to_mean` (default) | Mean sq. residual to regime mean | Baseline / levels |
+| `mad_to_median` | Mean abs. residual to regime median | Outliers / jumps |
+| `mse_on_diff` | MSE on first differences (`score.diff_order`) | Drifting rates / log-prices |
+| `factor_residual` | Within-regime PCA residual (`score.n_components`) | Panel co-movement (tenors / tickers) |
+| `hotelling_within` | Half-vs-half standardized mean-shift² | Multivariate mean leftovers |
+| `cusum_intensity` | Max \|CUSUM\| per feature (`score.cusum_k`) | Remaining change evidence |
+| `energy_split` | Max mid-window energy distance per feature | Kernel-aligned; remaining breaks |
+| `mmd_split` | Max mid-window RBF-MMD² per feature | Closest to Graph 1 MMD tests |
+
+```yaml
+retrain:
+  score_method: mse_on_diff
+  score: { diff_order: 1 }
+  threshold: 0.01
+  num_worst_features: 5
+  max_iter: 10
+```
+
+Split scorers (`energy_split` / `mmd_split`) accept smoke-friendly knobs under `retrain.score`: `n_splits`, `min_side`, `max_rows`; MMD also supports `mmd_estimator` (`linear` | `biased` | `unbiased`) and optional fixed `gamma`.
+
+Example configs: `config/graph2/full_graph2.yaml` (default L2), `graph2_score_diff.yaml`, `graph2_score_factor.yaml`, `graph2_score_energy.yaml`, `graph2_score_mmd.yaml`.
 
 | Step | Purpose |
 |------|---------|
 | Seed | Start from nothing or from a prior Graph 1 export (`regimes_df`). |
-| Heatmap | Show which features are farthest from their regime mean (where the current partition fails). |
+| Heatmap | Score which features / regimes look poorly explained under `score_method`. |
 | Select | Decide *where* and *on which columns* to spend another detection pass. |
 | Slice detect | Reuse Graph 1 core on `df.iloc[start:end][features]` only. |
 | Merge | Attach the slice hierarchy with local indices, shift bkpts/stats to global time, then loop. |
@@ -244,7 +276,7 @@ flowchart LR
   g2loop --> metrics
 ```
 
-Graph 1 is the global search. Graph 2 is local refinement: it repeatedly calls the same single-segmentation primitive on troubled intervals until the L2 heatmap is good enough or the iteration budget is spent.
+Graph 1 is the global search. Graph 2 is local refinement: it repeatedly calls the same single-segmentation primitive on troubled intervals until the retrain heatmap is good enough or the iteration budget is spent.
 
 ---
 
@@ -254,7 +286,7 @@ Graph 1 is the global search. Graph 2 is local refinement: it repeatedly calls t
 gulfstream/
 ├── config/
 │   ├── graph1/             # default_core, full_graph1, classical_*, graph1_*_dimred
-│   ├── graph2/             # full_graph2, graph2_interactive
+│   ├── graph2/             # full_graph2, score_* variants, interactive
 │   └── sources/            # synthetic, duckdb, parquet, csv, ...
 ├── src/gulfstream/
 │   ├── api.py              # Public programmatic façade

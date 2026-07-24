@@ -61,4 +61,6 @@ retrain:
   interactive: true
   features: ["__auto__"]
   num_worst_features: 5
+  score_method: mse_to_mean
+  score: {}
   regimes_df: null
