@@ -4,7 +4,7 @@ Gulfstream implements pipelines for detecting structural breaks between time ser
 
 Three pipeline modes share one CLI / API surface:
 
-* **Graph 1** runs full regime detection end to end. Default backend (`algo.detection_backend: kernel_ruptures`): features → PCA/kPCA → RFF → ruptures (PELT / Binseg / BottomUp) → MMD or energy-distance tests → postprocess, then optional plots, insights, explainability, robustness, and stability. Set `detection_backend: classical` to use hard-label detectors (k-means, HDBSCAN, OPTICS, HMM, Bayesian GMM, MSAR, ruptures, Wasserstein) instead of the ruptures+MMD stack.
+* **Graph 1** runs full regime detection end to end. Default backend (`algo.detection_backend: kernel_ruptures`): features → PCA/kPCA → RFF → ruptures (PELT / Binseg / BottomUp / WBS / BOCPD) → MMD, energy-distance, or other `test.choice` methods → postprocess, then optional plots, insights, explainability, robustness, stability, uncertainty, Excel export, and NDJSON events. Set `detection_backend: classical` to use hard-label detectors (`ClassicalDetector`: k-means, HMM, jump model, sticky HDP-HMM, GARCH, MS-VAR, …) instead of the ruptures+MMD stack.
 * **Graph 2** wraps that core in a targeted retrain loop: build a feature×regime score heatmap (`retrain.score_method`, default L2), pick the worst regime and features, detect on the slice, merge breakpoints, and repeat (works with either backend).
 
 Classical detectors also appear as **soft dimred embeddings** (`algo.dimred: [kmeans|hmm|…]`) feeding the kernel_ruptures path — orthogonal to hard-label `detection_backend: classical`.
@@ -129,22 +129,25 @@ Source configs under `config/sources/` map to the following loaders:
 
 ### Tutorial notebooks
 
-For a guided walkthrough on real DuckDB data, see [`notebooks/`](notebooks/). `01_ycs_zero_rates_workflow.ipynb` covers `zero_rates` and FX from `D:/data/duckdb/ycs_data.duckdb`; `02_equity_eod_workflow.ipynb` covers `equity_eod` from `D:/data/duckdb/equity_eod_data.duckdb`. Both use the public API (`run_single_segmentation`, `refine_regimes`, `plot_regimes`) and walk through:
+For a guided walkthrough on real DuckDB data, see [`notebooks/`](notebooks/). `01_ycs_zero_rates_workflow.ipynb` covers `zero_rates` and FX from `D:/data/duckdb/ycs_data.duckdb`; `02_equity_eod_workflow.ipynb` covers `equity_eod` from `D:/data/duckdb/equity_eod_data.duckdb`. Both use the public API (`run_single_segmentation`, `refine_regimes`, `plot_regimes`, plus streaming / panel helpers in Part K) and walk through:
 
 | Part | Focus |
 |------|--------|
 | A–C | PCA / kPCA / DMD — Graph 1 + Graph 2 |
 | D | Search methods (`SearchMethod`: PELT / Binseg / BottomUp / WBS / BOCPD) |
-| E | `energy_distance` / `mmd_unbiased` tests (`StatTest`) |
+| E | Statistical tests (`StatTest`: energy / MMD / Hotelling / CUSUM / …) |
 | F | ESS window hyperparameter |
 | G | Classical hard-label detectors (`detection_backend: classical`) + Graph 2 |
 | H | Classical models as soft dimred into `kernel_ruptures` |
 | I | TFT attention embeddings as dimred (+ optional Graph 2) |
-| — | Comparison: covering + breakpoint F1 vs PCA baseline |
+| J | Curve / ICA dimred (`nelson_siegel`, `fpca`, `dynamic_factor`, `ica`) |
+| K | Product: uncertainty + CI ribbons, Excel export, NDJSON events, streaming, panel |
+| L | Graph 2 retrain scores (`retrain.score_method`: `mse_on_diff`, `factor_residual`, `energy_split`, `mmd_split`, …) |
+| — | Comparison: covering + adjusted Rand index + breakpoint F1 vs PCA baseline |
 
-Launch instructions are in [`notebooks/README.md`](notebooks/README.md).
+Launch instructions and matching example YAMLs are in [`notebooks/README.md`](notebooks/README.md). Notebook artifacts land under `outputs/notebooks/{ycs,equity}/` (Part K → `…/product/`, Part L → `…/graph2_scores/`).
 
-Run outputs land under `outputs/metrics/` and `outputs/logs/`.
+CLI / pipeline run outputs land under `outputs/metrics/` and `outputs/logs/`.
 
 ---
 
@@ -205,7 +208,7 @@ flowchart TB
 | **A — Core detection** | Reduce dimensions, map to a kernel feature space, propose breakpoints with ruptures (PELT / Binseg / BottomUp), accept/reject with MMD or energy distance, then clean segments. | Produce a single segmentation (`bkpts`, labels, hierarchy, stats) that is the baseline for everything else. |
 | **B — Metrics** | Plot regimes, feature×regime L2 loss, regime distances/clusters, hierarchy trees, decision-tree explanations, transition probabilities; optionally perturb HPs (robustness) or drop sources/tenors/windows (stability). | Turn raw breakpoints into interpretable, stress-tested outputs under `outputs/metrics/`. |
 
-Stage B is controlled by `metrics.plot` and by `robustness.enabled` / `stability.enabled` in YAML. `config/full_graph1.yaml` turns the deferred stages on; `default_core.yaml` keeps them off for faster smoke runs.
+Stage B is controlled by `metrics.plot` and by `robustness.enabled` / `stability.enabled` in YAML. `config/graph1/full_graph1.yaml` turns the deferred stages on; `default_core.yaml` keeps them off for faster smoke runs. Excel (`export.excel`) and NDJSON events (`events`) are written from `produce_all_metrics` even when plotting is off.
 
 ---
 
@@ -285,8 +288,8 @@ Graph 1 is the global search. Graph 2 is local refinement: it repeatedly calls t
 ```text
 gulfstream/
 ├── config/
-│   ├── graph1/             # default_core, full_graph1, classical_*, graph1_*_dimred
-│   ├── graph2/             # full_graph2, score_* variants, interactive
+│   ├── graph1/             # default_core, full_graph1, classical_*, streaming/panel/export, …
+│   ├── graph2/             # full_graph2, graph2_score_*, interactive
 │   └── sources/            # synthetic, duckdb, parquet, csv, ...
 ├── src/gulfstream/
 │   ├── api.py              # Public programmatic façade
@@ -298,10 +301,12 @@ gulfstream/
 │   ├── detection/          # algorithm, stat_tests, time_index, trees, hyperparams, postprocess
 │   ├── dimred/             # dispatcher, classical/*, model_based/, density
 │   ├── features/           # kernel_map, names
-│   ├── metrics/            # evaluation, plots, insights, explainability, robustness, ...
+│   ├── metrics/            # evaluation, plots, regime_scores, writers, uncertainty, …
+│   ├── ops/                # NDJSON run-event stream
 │   └── detectors/          # kmeans, hmm, jump_model, sticky_hdp_hmm, garch, …
 └── outputs/
     ├── metrics/            # PNGs, Excel, gallery.html
+    ├── notebooks/          # Tutorial notebook artifacts
     └── logs/
 ```
 
@@ -315,17 +320,18 @@ gulfstream/
 | **Pipelines** | Mode orchestrators (`run_graph1` / `run_graph2`) plus classical backend helper and `single_pass`. Linear kernel core via Hamilton. |
 | **Detection** | Ruptures search (PELT / Binseg / BottomUp) + MMD / energy tests + hyperparams + postprocess; or classical hard-label detectors. |
 | **Dimred / features** | Classical and model-based embeddings; RFF / Nyström maps. |
-| **Metrics** | Evaluation (covering, F1, recovery), heatmaps, trees, explainability, transitions, robustness, stability. |
+| **Metrics** | Evaluation (covering, F1, ARI, …), plots (incl. CI ribbons), Graph 2 `regime_scores`, Excel writers, uncertainty, robustness, stability. |
+| **Ops** | NDJSON event stream for dashboards (`ops.events`). |
 | **Detectors** | Hard-label classical detectors (also reused as model-based dimred helpers). |
-| **Outputs** | Timestamped `bkpt_tests_*` dirs under `outputs/metrics/`, plus logs under `outputs/logs/`. |
+| **Outputs** | Timestamped `bkpt_tests_*` dirs under `outputs/metrics/`, notebook runs under `outputs/notebooks/`, logs under `outputs/logs/`. |
 
 ### Key result type
 
-Runs accumulate into `SegmentResults`: breakpoints (`bkpts`), invalid breakpoints, per-bkpt stats, hierarchy, labels, and optional `persistence`, `low_confidence_bkpts`, and `stability_score` from the deferred Graph 1 stages.
+Runs accumulate into `SegmentResults`: breakpoints (`bkpts`), invalid breakpoints, per-bkpt stats, hierarchy, labels, and optional `persistence`, `low_confidence_bkpts`, `stability_score`, `bkpt_ci`, and `panel_support` from deferred / product stages.
 
 ### Config split
 
-Algo configs (`config/graph1|graph2/*.yaml`) hold `algo`, `test`, `metrics`, and optional `robustness`, `stability`, `retrain`, and `log` sections. Source configs (`config/sources/*.yaml`) describe only how to load or generate the feature DataFrame. That separation lets you reuse the same detector settings across synthetic smoke data and production DuckDB extracts without code changes.
+Algo configs (`config/graph1|graph2/*.yaml`) hold `algo`, `test`, `metrics`, and optional `robustness`, `stability`, `uncertainty`, `export`, `events`, `streaming`, `panel`, `retrain`, and `log` sections. Source configs (`config/sources/*.yaml`) describe only how to load or generate the feature DataFrame. That separation lets you reuse the same detector settings across synthetic smoke data and production DuckDB extracts without code changes.
 
 Set `algo.detection_backend: [classical]` and `algo.regime_detection_algorithm: [kmeans|hmm|…]` for hard-label Graph 1 (see `config/graph1/classical_*.yaml`). Default is `kernel_ruptures`.
 
@@ -337,13 +343,15 @@ Import from the package root — all functions accept a pydantic `Config` or a p
 |----------|------|
 | `load_features(source_yaml, project_root=…)` | Load a dated feature matrix from a source YAML |
 | `detect_regimes(df, config)` | Run full Graph 1 (grid driver; may write artifacts per `metrics.mode`) |
+| `detect_regimes_incremental(df, config, state=…)` | One streaming Graph 1 step (expanding / rolling) |
+| `detect_regimes_panel(df, config)` | Per-group Graph 1 → consensus breakpoints (`panel_support`) |
 | `run_single_segmentation(df, config)` | One Graph 1 pass in memory — used by Graph 2 and notebooks |
 | `refine_regimes(df, config, seed=…)` | Run Graph 2; seed from `SegmentResults` or a `regimes_df` |
 | `seed_regimes_from_results(df, results)` | Build Start/End/Regime table from Graph 1 output |
-| `plot_regimes(df, results, variables=…)` | Regime-shaded feature plots |
+| `plot_regimes(df, results, variables=…)` | Regime-shaded feature plots (optional CI ribbons from `bkpt_ci`) |
 | `regime_intervals(results, dates)` | Start/End/Regime table from breakpoint hierarchy |
 
-Typed option enums live in `gulfstream.common.options` (`SearchMethod`, `StatTest`, `DimredMethod`, `DetectionBackend`, `ClassicalDetector`, …). YAML keys are unchanged; enums are optional in Python.
+Typed option enums live in `gulfstream.common.options` (`SearchMethod`, `StatTest`, `DimredMethod`, `DetectionBackend`, `ClassicalDetector`, `RetrainScoreMethod`, …). YAML keys are unchanged; enums are optional in Python.
 
 ```python
 from pathlib import Path
@@ -409,7 +417,9 @@ Prefer `import gulfstream` over pipeline internals (`run_graph1`, Hamilton nodes
 | **streaming** | Expanding/rolling incremental Graph 1 (`streaming.enabled`) |
 | **panel joint** | Consensus breakpoints across series groups (`panel.enabled`) |
 | **bkpt_ci** | Calibrated index uncertainty band per breakpoint (`uncertainty.enabled`) |
-| **covering / F1** | Breakpoint-set metrics: interval covering and precision/recall/F1 with tolerance |
+| **panel_support** | Fraction of panel groups agreeing on a consensus break (`panel.enabled`) |
+| **score_method** | Graph 2 feature×regime heatmap scorer (`retrain.score_method`) |
+| **covering / F1 / ARI** | Breakpoint-set metrics: interval covering, precision/recall/F1, adjusted Rand index |
 | **regimes_df** | Start/End/Regime(+ hierarchy) table used to seed Graph 2 |
 
 ---
