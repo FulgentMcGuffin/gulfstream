@@ -121,15 +121,15 @@ Source configs under `config/sources/` map to the following loaders:
 | `type` | Key parameters |
 |--------|----------------|
 | `synthetic` | `case`, `regimes`, `features`, `durations`, `regime_params`, `seed` |
-| `faker` | `n_days`, `n_regimes`, `sources`, `tenors`, `fx_pairs`, `seed` |
-| `parquet` | `path`, optional `create_if_missing`, `generate_features` |
+| `faker` | `kind` (`yields` default, or `hmm_panel`), `n_days` / `n_years`, `n_features`, `n_regimes`, `n_repeating`, `seed`, optional yield `sources`/`tenors`/`fx_pairs` |
+| `parquet` | `path`, optional `create_if_missing`, `create_kind` (`faker_yields` \| `jump` \| `hmm_panel`) |
 | `csv` | `path`, `date_column`, optional `columns`, `sep`, `start_date`/`end_date` |
 | `duckdb` | `db_path`, `rate_table`, `sources`, `tenors`, `fx_pairs`, dates |
 | `sqlite` | same shape as `duckdb` |
 
 ### Tutorial notebooks
 
-For a guided walkthrough on real DuckDB data, see [`notebooks/`](notebooks/). `01_ycs_zero_rates_workflow.ipynb` covers user supplied yield curve and FX data; `02_equity_eod_workflow.ipynb` covers user supplied equity data. Both use the public API (`run_single_segmentation`, `refine_regimes`, `plot_regimes`, plus streaming / panel helpers in Part K) and walk through:
+For guided walkthroughs, see [`notebooks/`](notebooks/). `01_ycs_zero_rates_workflow.ipynb` covers user supplied yield curve and FX data; `02_equity_eod_workflow.ipynb` covers user supplied equity data; `03_faker_hmm_workflow.ipynb` uses a Faker HMM panel (~10y daily, 10 features, 4 regimes with 2 repeating); `04_parquet_hmm_workflow.ipynb` loads the same panel from parquet. All use the public API (`run_single_segmentation`, `refine_regimes`, `plot_regimes`, plus streaming / panel helpers in Part K) and walk through:
 
 | Part | Focus |
 |------|--------|
@@ -145,7 +145,7 @@ For a guided walkthrough on real DuckDB data, see [`notebooks/`](notebooks/). `0
 | L | Graph 2 retrain scores (`retrain.score_method`: `mse_on_diff`, `factor_residual`, `energy_split`, `mmd_split`, …) |
 | — | Comparison: covering + adjusted Rand index + breakpoint F1 vs PCA baseline |
 
-Launch instructions and matching example YAMLs are in [`notebooks/README.md`](notebooks/README.md). Notebook artifacts land under `outputs/notebooks/{ycs,equity}/` (Part K → `…/product/`, Part L → `…/graph2_scores/`).
+Launch instructions and matching example YAMLs are in [`notebooks/README.md`](notebooks/README.md). Notebook artifacts land under `outputs/notebooks/{ycs,equity,faker_hmm,parquet_hmm}/` (Part K → `…/product/`, Part L → `…/graph2_scores/`).
 
 CLI / pipeline run outputs land under `outputs/metrics/` and `outputs/logs/`.
 

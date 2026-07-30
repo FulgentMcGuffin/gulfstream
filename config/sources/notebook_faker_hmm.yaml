@@ -1,0 +1,13 @@
+# Faker HMM panel for tutorial notebooks 03/04.
+# Outer sequence: 4 regimes, 2 of which repeat; each regime is a 2-state HMM
+# mixing two multivariate normals. Features are the observed series (no yield FE).
+type: faker
+kind: hmm_panel
+n_years: 10
+n_features: 10
+n_regimes: 4
+n_repeating: 2
+seed: 42
+start: "2014-01-01"
+generate_features: false
+include_labels: false

@@ -85,6 +85,7 @@ db.sqlite3-journal
 
 # Generated example database (recreate with: uv run db-mcp-seed)
 data/*.db
+data/synthetic/*.parquet
 
 # Flask stuff:
 instance/

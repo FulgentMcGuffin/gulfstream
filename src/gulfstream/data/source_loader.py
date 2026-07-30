@@ -103,6 +103,21 @@ def _load_synthetic(cfg: dict, *, root: Path) -> pl.DataFrame:
 
 
 def _load_faker(cfg: dict, *, root: Path) -> pl.DataFrame:
+    kind = str(cfg.get("kind", "yields")).lower().strip()
+    if kind in {"hmm_panel", "hmm", "faker_hmm"}:
+        result = synth.generate_faker_hmm_panel(
+            n_years=float(cfg.get("n_years", 10)),
+            n_features=int(cfg.get("n_features", cfg.get("features", 10))),
+            n_regimes=int(cfg.get("n_regimes", 4)),
+            n_repeating=int(cfg.get("n_repeating", 2)),
+            seed=int(cfg.get("seed", 42)),
+            start=str(cfg.get("start", "2014-01-01")),
+            n_days=int(cfg["n_days"]) if cfg.get("n_days") is not None else None,
+            include_labels=bool(cfg.get("include_labels", False)),
+        )
+        # Panel features are already the observed series — never run yield FE.
+        return result.df
+
     raw = synth.generate_faker_yield_frame(
         n_days=int(cfg.get("n_days", 500)),
         sources=cfg.get("sources"),
@@ -122,15 +137,35 @@ def _load_parquet(cfg: dict, *, root: Path) -> pl.DataFrame:
     if not path.exists():
         if cfg.get("create_if_missing", False):
             kind = cfg.get("create_kind", "faker_yields")
-            synth.save_synthetic_parquet(
-                path,
-                kind=kind,
-                seed=int(cfg.get("seed", 42)),
-                n_days=int(cfg.get("n_days", 500)),
-            )
+            kwargs = {
+                "seed": int(cfg.get("seed", 42)),
+                "n_days": int(cfg.get("n_days", 500)),
+            }
+            if kind == "hmm_panel":
+                kwargs = {
+                    "seed": int(cfg.get("seed", 42)),
+                    "n_years": float(cfg.get("n_years", 10)),
+                    "n_features": int(cfg.get("n_features", cfg.get("features", 10))),
+                    "n_regimes": int(cfg.get("n_regimes", 4)),
+                    "n_repeating": int(cfg.get("n_repeating", 2)),
+                    "start": str(cfg.get("start", "2014-01-01")),
+                    # Always persist ground truth in the parquet for inspection;
+                    # stripped below unless include_labels is true.
+                    "include_labels": True,
+                }
+                if cfg.get("n_days") is not None:
+                    kwargs["n_days"] = int(cfg["n_days"])
+            synth.save_synthetic_parquet(path, kind=kind, **kwargs)
         else:
             raise FileNotFoundError(f"Parquet file not found: {path}")
     raw = synth.load_parquet(path)
+    if str(cfg.get("create_kind", "")).lower() == "hmm_panel" or cfg.get(
+        "kind", ""
+    ) in {"hmm_panel", "hmm", "faker_hmm"}:
+        # Observed panel already; strip optional label col for detection frames.
+        if not cfg.get("include_labels", False):
+            raw = synth.drop_label_column(raw)
+        return raw
     return _maybe_features(raw, cfg)
 
 

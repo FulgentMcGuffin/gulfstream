@@ -1,11 +1,13 @@
 # Gulfstream tutorial notebooks
 
-Walkthroughs using the public `gulfstream` API on real DuckDB tables.
+Walkthroughs using the public `gulfstream` API.
 
 | Notebook | Data |
 |----------|------|
 | [`01_ycs_zero_rates_workflow.ipynb`](01_ycs_zero_rates_workflow.ipynb) | User supplied yield curve and FX data |
 | [`02_equity_eod_workflow.ipynb`](02_equity_eod_workflow.ipynb) | User supplied equity data |
+| [`03_faker_hmm_workflow.ipynb`](03_faker_hmm_workflow.ipynb) | Faker HMM panel (~10y daily, 10 features, 4 regimes with 2 repeating; each regime = 2-state MVN HMM) |
+| [`04_parquet_hmm_workflow.ipynb`](04_parquet_hmm_workflow.ipynb) | Same HMM panel via parquet (`data/synthetic/hmm_panel.parquet`) |
 
 Each notebook:
 
@@ -13,7 +15,7 @@ Each notebook:
 - **Parts D–J** — Search, tests, ESS window, classical detectors, TFT, curve/ICA dimred
 - **Part K** — Product: uncertainty bands + CI ribbon overlays, Excel export (`export.excel`), NDJSON event stream (`events`), streaming Graph 1, panel joint breakpoints
 - **Part L** — Graph 2 retrain scores (`retrain.score_method`): compare pick tables, then run Graph 2 with `mse_on_diff` / `factor_residual` / `energy_split` / `mmd_split`
-- **Comparison** — covering, **adjusted Rand index**, and breakpoint F1 vs the PCA baseline
+- **Comparison** — covering, **adjusted Rand index**, and breakpoint F1 (notebooks 03/04 score against **ground-truth** outer breakpoints)
 
 ```bash
 uv sync
@@ -22,9 +24,13 @@ uv run jupyter lab notebooks
 
 Or open the `.ipynb` files in Cursor / VS Code with the project `.venv`.
 
-Artifacts land under `outputs/notebooks/{ycs,equity}/…` (Part K under `…/product/`, Part L under `…/graph2_scores/`). Close any client that has the equity DuckDB file open if the notebook cannot acquire a read lock.
+Artifacts land under `outputs/notebooks/{ycs,equity,faker_hmm,parquet_hmm}/…` (Part K under `…/product/`, Part L under `…/graph2_scores/`). Close any client that has a DuckDB file open if a notebook cannot acquire a read lock.
 
-YCS source settings live in `config/sources/notebook_ycs.yaml`.
+Source YAMLs:
+
+- YCS: `config/sources/notebook_ycs.yaml`
+- Faker HMM: `config/sources/notebook_faker_hmm.yaml`
+- Parquet HMM: `config/sources/notebook_parquet_hmm.yaml` (`create_if_missing: true`)
 
 - Product YAML: `config/graph1/graph1_export_events.yaml`, `graph1_streaming_expanding.yaml`, `graph1_panel_joint.yaml`, `graph1_uncertainty_bands.yaml`
 - Graph 2 score YAML: `config/graph2/full_graph2.yaml`, `graph2_score_diff.yaml`, `graph2_score_factor.yaml`, `graph2_score_energy.yaml`, `graph2_score_mmd.yaml`

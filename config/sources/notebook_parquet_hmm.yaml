@@ -1,0 +1,16 @@
+# Same HMM panel as notebook_faker_hmm.yaml, persisted as parquet.
+# First load creates data/synthetic/hmm_panel.parquet when missing.
+type: parquet
+path: data/synthetic/hmm_panel.parquet
+create_if_missing: true
+create_kind: hmm_panel
+kind: hmm_panel
+n_years: 10
+n_features: 10
+n_regimes: 4
+n_repeating: 2
+seed: 42
+start: "2014-01-01"
+generate_features: false
+# Labels are written into the parquet for inspection; stripped on load by default.
+include_labels: false
