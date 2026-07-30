@@ -8,6 +8,7 @@ Walkthroughs using the public `gulfstream` API.
 | [`02_equity_eod_workflow.ipynb`](02_equity_eod_workflow.ipynb) | User supplied equity data |
 | [`03_faker_hmm_workflow.ipynb`](03_faker_hmm_workflow.ipynb) | Faker HMM panel (~10y daily, 10 features, 4 regimes with 2 repeating; each regime = 2-state MVN HMM) |
 | [`04_parquet_hmm_workflow.ipynb`](04_parquet_hmm_workflow.ipynb) | Same HMM panel via parquet (`data/synthetic/hmm_panel.parquet`) |
+| [`05_ycs_panelyzer_workflow.ipynb`](05_ycs_panelyzer_workflow.ipynb) | Same YCS DuckDB window; features via panelyzer (Parts A–B only) |
 
 Each notebook:
 
@@ -24,11 +25,12 @@ uv run jupyter lab notebooks
 
 Or open the `.ipynb` files in Cursor / VS Code with the project `.venv`.
 
-Artifacts land under `outputs/notebooks/{ycs,equity,faker_hmm,parquet_hmm}/…` (Part K under `…/product/`, Part L under `…/graph2_scores/`). Close any client that has a DuckDB file open if a notebook cannot acquire a read lock.
+Artifacts land under `outputs/notebooks/{ycs,equity,faker_hmm,parquet_hmm,ycs_panelyzer}/…` (Part K under `…/product/`, Part L under `…/graph2_scores/`). Close any client that has a DuckDB file open if a notebook cannot acquire a read lock.
 
 Source YAMLs:
 
 - YCS: `config/sources/notebook_ycs.yaml`
+- YCS + panelyzer: `config/sources/notebook_ycs_panelyzer.yaml` → `config/features/ycs_panelyzer_subset.yaml`
 - Faker HMM: `config/sources/notebook_faker_hmm.yaml`
 - Parquet HMM: `config/sources/notebook_parquet_hmm.yaml` (`create_if_missing: true`)
 

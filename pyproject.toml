@@ -19,6 +19,7 @@ dependencies = [
     "numpy>=2.5.1",
     "openpyxl>=3.1.0",
     "pandas>=2.2.0",
+    "panelyzer",
     "plotnine>=0.15.7",
     "polars>=1.43.0",
     "pyarrow>=25.0.0",
@@ -48,3 +49,13 @@ packages = ["src/gulfstream"]
 [tool.uv.sources]
 framecache = { git = "https://github.com/FulgentMcGuffin/framecache.git" }
 mcp-data = { git = "https://github.com/FulgentMcGuffin/mcp_data.git" }
+panelyzer = { git = "https://github.com/FulgentMcGuffin/panelyzer.git" }
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

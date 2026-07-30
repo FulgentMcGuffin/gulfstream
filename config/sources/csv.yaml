@@ -1,4 +1,4 @@
-type: csv
+﻿type: csv
 path: data/synthetic/sample_rates.csv
 date_column: date
 # Optional column subset; omit to use all non-date columns.
@@ -6,5 +6,6 @@ date_column: date
 start_date: null
 end_date: null
 generate_features: true
+feature_generator: gulfstream.data.feature_generation.generate_yield_features
 sep: ","
 encoding: utf-8

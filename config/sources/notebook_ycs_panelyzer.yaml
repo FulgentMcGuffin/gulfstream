@@ -1,4 +1,5 @@
-﻿type: duckdb
+# Same DuckDB window as notebook_ycs.yaml, but features via panelyzer.
+type: duckdb
 db_path: "D:/data/duckdb/ycs_data.duckdb"
 rate_table: zero_rates
 sources: [USA, DEU, ITA]
@@ -8,8 +9,8 @@ fx_table: spotfx
 start_date: "2015-01-01"
 end_date: "2019-12-31"
 generate_features: true
-feature_generator: gulfstream.data.feature_generation.generate_yield_features
+feature_generator: gulfstream.data.feature_generation.generate_panelyzer_features
 feature_generator_kwargs:
-  vol_window: 60
-  corr_window: 60
-  include_levels: true    
+  config: config/features/ycs_panelyzer_subset.yaml
+  use_input_frame: true
+  drop_nulls: true

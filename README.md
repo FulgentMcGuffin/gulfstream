@@ -1,11 +1,13 @@
 # Gulfstream
 
-Gulfstream implements pipelines for detecting structural breaks between time series regimes. We use the example of FX and yield-curve data, but any time series dataset will work. The core data structure must be (one or more) **polars** `DataFrame` with a required `date` column (`gulfstream.common.frames`). 
+Gulfstream implements pipelines for detecting structural breaks between time series regimes. We use the example of FX and yield-curve data, but any time series dataset will work. The core data structure must be (one or more) **polars** `DataFrame` with a required `date` or `datetime` column (`gulfstream.common.frames`). 
 
-Three pipeline modes share one CLI / API surface:
+Data can be fed in raw (leaving feature engineering to the user) or the user can supply their own feature engineering method or reuse internally available methods, see [`sources`](config/features/sources/) for examples. We also provide short-hand evaluation expressions (which can include user provided functions) for the creation of features through the use of [Panelyzer](https://github.com/FulgentMcGuffin/panelyzer), see [`notebook_ycs_panelyzer.yaml`](config/sources/notebook_ycs_panelyzer.yaml).
 
-* **Graph 1** runs full regime detection end to end. Default backend (`algo.detection_backend: kernel_ruptures`): features → PCA/kPCA → RFF → ruptures (PELT / Binseg / BottomUp / WBS / BOCPD) → MMD, energy-distance, or other `test.choice` methods → postprocess, then optional plots, insights, explainability, robustness, stability, uncertainty, Excel export, and NDJSON events. Set `detection_backend: classical` to use hard-label detectors (`ClassicalDetector`: k-means, HMM, jump model, sticky HDP-HMM, GARCH, MS-VAR, …) instead of the ruptures+MMD stack.
-* **Graph 2** wraps that core in a targeted retrain loop: build a feature×regime score heatmap (`retrain.score_method`, default L2), pick the worst regime and features, detect on the slice, merge breakpoints, and repeat (works with either backend).
+Two pipeline modes share one CLI / API surface (`--mode graph1|graph2`):
+
+* **Graph 1** — one-shot regime detection over the full series. Default backend (`algo.detection_backend: kernel_ruptures`): features → PCA/kPCA/DMD → RFF → ruptures (PELT / Binseg / BottomUp / WBS / BOCPD) → MMD, energy-distance, or other `test.choice` methods → postprocess, then optional plots, insights, explainability, robustness, stability, uncertainty, Excel export, and NDJSON events. Set `detection_backend: classical` to use hard-label detectors (`ClassicalDetector`: k-means, HMM, jump model, sticky HDP-HMM, GARCH, MS-VAR, …) instead of the ruptures+MMD stack.
+* **Graph 2** — iterative refinement of a Graph 1 segmentation: build a feature×regime score heatmap (`retrain.score_method`, default L2), pick the worst regime and features, re-run detection on that slice, merge breakpoints, and repeat until the score is below `threshold` or `max_iter` is hit (works with either backend).
 
 Classical detectors also appear as **soft dimred embeddings** (`algo.dimred: [kmeans|hmm|…]`) feeding the kernel_ruptures path — orthogonal to hard-label `detection_backend: classical`.
 
@@ -124,12 +126,14 @@ Source configs under `config/sources/` map to the following loaders:
 | `faker` | `kind` (`yields` default, or `hmm_panel`), `n_days` / `n_years`, `n_features`, `n_regimes`, `n_repeating`, `seed`, optional yield `sources`/`tenors`/`fx_pairs` |
 | `parquet` | `path`, optional `create_if_missing`, `create_kind` (`faker_yields` \| `jump` \| `hmm_panel`) |
 | `csv` | `path`, `date_column`, optional `columns`, `sep`, `start_date`/`end_date` |
-| `duckdb` | `db_path`, `rate_table`, `sources`, `tenors`, `fx_pairs`, dates |
+| `duckdb` | `db_path`, `rate_table`, `sources`, `tenors`, `fx_pairs`, dates; optional `generate_features` + `feature_generator` (dotted path) / `feature_generator_kwargs` |
 | `sqlite` | same shape as `duckdb` |
+
+When `generate_features` is true (or auto-enabled for rate/FX frames), set `feature_generator` to a dotted callable path such as `gulfstream.data.feature_generation.generate_yield_features`. Pass non-default arguments under `feature_generator_kwargs`. Built-ins also include `identity_features`, `generate_ewma_features`, and `generate_panelyzer_features` (delegates to [panelyzer](https://github.com/FulgentMcGuffin/panelyzer) `feature_builder.create_features`; see `config/features/ycs_panelyzer_subset.yaml`).
 
 ### Tutorial notebooks
 
-For guided walkthroughs, see [`notebooks/`](notebooks/). `01_ycs_zero_rates_workflow.ipynb` covers user supplied yield curve and FX data; `02_equity_eod_workflow.ipynb` covers user supplied equity data; `03_faker_hmm_workflow.ipynb` uses a Faker HMM panel (~10y daily, 10 features, 4 regimes with 2 repeating); `04_parquet_hmm_workflow.ipynb` loads the same panel from parquet. All use the public API (`run_single_segmentation`, `refine_regimes`, `plot_regimes`, plus streaming / panel helpers in Part K) and walk through:
+For guided walkthroughs, see [`notebooks/`](notebooks/). `01_ycs_zero_rates_workflow.ipynb` covers user supplied yield curve and FX data; `02_equity_eod_workflow.ipynb` covers user supplied equity data; `03_faker_hmm_workflow.ipynb` / `04_parquet_hmm_workflow.ipynb` use a Faker HMM panel (in-memory or parquet); `05_ycs_panelyzer_workflow.ipynb` uses the YCS DuckDB window with **panelyzer** feature expressions (Parts A–B). All use the public API (`run_single_segmentation`, `refine_regimes`, `plot_regimes`, plus streaming / panel helpers in Part K) and walk through:
 
 | Part | Focus |
 |------|--------|
@@ -145,7 +149,7 @@ For guided walkthroughs, see [`notebooks/`](notebooks/). `01_ycs_zero_rates_work
 | L | Graph 2 retrain scores (`retrain.score_method`: `mse_on_diff`, `factor_residual`, `energy_split`, `mmd_split`, …) |
 | — | Comparison: covering + adjusted Rand index + breakpoint F1 vs PCA baseline |
 
-Launch instructions and matching example YAMLs are in [`notebooks/README.md`](notebooks/README.md). Notebook artifacts land under `outputs/notebooks/{ycs,equity,faker_hmm,parquet_hmm}/` (Part K → `…/product/`, Part L → `…/graph2_scores/`).
+Launch instructions and matching example YAMLs are in [`notebooks/README.md`](notebooks/README.md). Notebook artifacts land under `outputs/notebooks/{ycs,equity,faker_hmm,parquet_hmm,ycs_panelyzer}/` (Part K → `…/product/`, Part L → `…/graph2_scores/`).
 
 CLI / pipeline run outputs land under `outputs/metrics/` and `outputs/logs/`.
 

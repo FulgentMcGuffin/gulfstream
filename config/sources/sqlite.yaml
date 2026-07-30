@@ -1,4 +1,4 @@
-type: sqlite
+﻿type: sqlite
 db_path: "D:/data/sqlite/ycs_data.sqlite"
 rate_table: zero_rates
 sources: [USA, DEU, ITA]
@@ -8,3 +8,4 @@ fx_table: spotfx
 start_date: "2015-01-01"
 end_date: "2024-12-31"
 generate_features: true
+feature_generator: gulfstream.data.feature_generation.generate_yield_features

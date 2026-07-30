@@ -1,0 +1,53 @@
+# Panelyzer feature-builder config: subset of structures from
+# gulfstream.data.feature_generation.generate_yield_features
+# (selected slopes, one fly per curve, 10y cross-country spreads + a few levels).
+# Sources / date_range are injected at runtime from the gulfstream-loaded frame
+# when using generate_panelyzer_features(..., use_input_frame=true).
+# Cache is always forced off by generate_panelyzer_features — no cache block needed.
+
+output:
+  mode: expressions_only
+
+panel:
+  date_column_name: date
+
+# Placeholder source — replaced when use_input_frame=true.
+sources:
+  - type: parquet
+    path: _injected_at_runtime.parquet
+    entity_col: source
+    default_feature: Y010p0
+    date_col: date
+    date_col_type: datetime
+    primary: true
+
+features:
+  # Levels (subset)
+  - name: USA_Y010p0
+    expression: "{USA:Y010p0}"
+  - name: DEU_Y010p0
+    expression: "{DEU:Y010p0}"
+  - name: ITA_Y010p0
+    expression: "{ITA:Y010p0}"
+
+  # Slopes (long minus short) — not every tenor pair from generate_yield_features
+  - name: USA_slope_30_2
+    expression: "{USA:Y030p0} - {USA:Y002p0}"
+  - name: DEU_slope_30_2
+    expression: "{DEU:Y030p0} - {DEU:Y002p0}"
+  - name: ITA_slope_10_2
+    expression: "{ITA:Y010p0} - {ITA:Y002p0}"
+
+  # Butterflies (match gulfstream: 2*mid - left - right)
+  - name: USA_fly_2_10_30
+    expression: "2*{USA:Y010p0} - {USA:Y002p0} - {USA:Y030p0}"
+  - name: DEU_fly_2_10_30
+    expression: "2*{DEU:Y010p0} - {DEU:Y002p0} - {DEU:Y030p0}"
+
+  # Cross-country 10y spreads only (not all tenors)
+  - name: USA_DEU_Y010p0_spd
+    expression: "{USA:Y010p0} - {DEU:Y010p0}"
+  - name: USA_ITA_Y010p0_spd
+    expression: "{USA:Y010p0} - {ITA:Y010p0}"
+  - name: DEU_ITA_Y010p0_spd
+    expression: "{DEU:Y010p0} - {ITA:Y010p0}"

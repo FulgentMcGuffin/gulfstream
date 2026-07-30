@@ -1,7 +1,9 @@
 """YAML-driven data source loading for the gulfstream CLI."""
 from __future__ import annotations
 
+import importlib
 import logging
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Sequence
 
@@ -12,11 +14,13 @@ from mcp_data.backends.sqlite_backend import SQLiteSource
 
 from gulfstream.common import frames
 from gulfstream.common.options import SourceType, values as option_values
-from gulfstream.data import feature_generation, synth
+from gulfstream.data import synth
 
 logger = logging.getLogger(__name__)
 
 SUPPORTED_TYPES = tuple(option_values(SourceType))
+
+FeatureGenerator = Callable[..., pl.DataFrame]
 
 
 def load_source_config(path: str | Path) -> dict:
@@ -67,8 +71,47 @@ def _resolve_path(path: str | Path, root: Path) -> Path:
     return p
 
 
-def _maybe_features(raw: pl.DataFrame, cfg: dict) -> pl.DataFrame:
-    """Optionally run yield-feature generation on raw rate/FX frames."""
+def resolve_feature_generator(spec: str | FeatureGenerator) -> FeatureGenerator:
+    """Resolve a feature-generator callable from a dotted path or pass-through."""
+    if callable(spec):
+        return spec
+    path = str(spec).strip()
+    if not path:
+        raise ValueError("feature_generator path is empty")
+    module_name, _, attr = path.rpartition(".")
+    if not module_name or not attr:
+        raise ValueError(
+            f"feature_generator must be a dotted path to a callable, got {path!r}"
+        )
+    module = importlib.import_module(module_name)
+    fn = getattr(module, attr, None)
+    if fn is None or not callable(fn):
+        raise AttributeError(f"No callable {attr!r} on module {module_name!r}")
+    return fn
+
+
+def _maybe_features(
+    raw: pl.DataFrame,
+    cfg: dict,
+    *,
+    root: Path | None = None,
+) -> pl.DataFrame:
+    """Optionally transform ``raw`` with a user-specified feature generator.
+
+    When feature generation is enabled (``generate_features: true``, or omitted
+    and the frame does not look like already-featurized ``f0``/``f1``/… columns),
+    the config **must** set ``feature_generator`` to a dotted import path (or a
+    callable when constructing the cfg in Python). Optional kwargs go under
+    ``feature_generator_kwargs``.
+
+    Example YAML::
+
+        generate_features: true
+        feature_generator: gulfstream.data.feature_generation.generate_yield_features
+        feature_generator_kwargs:
+          vol_window: 60
+          corr_window: 60
+    """
     raw = frames.ensure_date_column(raw)
     generate = cfg.get("generate_features")
     if generate is None:
@@ -76,14 +119,28 @@ def _maybe_features(raw: pl.DataFrame, cfg: dict) -> pl.DataFrame:
         if any(str(c).startswith("f") and str(c)[1:].isdigit() for c in feat):
             return raw
         generate = True
-    if generate:
-        return feature_generation.generate_yield_features(
-            raw,
-            vol_window=int(cfg.get("vol_window", 60)),
-            corr_window=int(cfg.get("corr_window", 60)),
-            include_levels=bool(cfg.get("include_levels", True)),
+    if not generate:
+        return raw
+
+    spec = cfg.get("feature_generator")
+    if spec is None:
+        raise ValueError(
+            "generate_features is enabled but 'feature_generator' is missing. "
+            "Set feature_generator to a dotted path such as "
+            "'gulfstream.data.feature_generation.generate_yield_features', "
+            "and put non-default arguments in feature_generator_kwargs."
         )
-    return raw
+    fn = resolve_feature_generator(spec)
+    kwargs = dict(cfg.get("feature_generator_kwargs") or {})
+    if root is not None and "project_root" not in kwargs:
+        kwargs["project_root"] = str(root)
+    out = fn(raw, **kwargs)
+    if not isinstance(out, pl.DataFrame):
+        raise TypeError(
+            f"feature_generator {spec!r} must return a polars DataFrame, "
+            f"got {type(out)}"
+        )
+    return frames.ensure_date_column(out)
 
 
 def _load_synthetic(cfg: dict, *, root: Path) -> pl.DataFrame:
@@ -126,7 +183,7 @@ def _load_faker(cfg: dict, *, root: Path) -> pl.DataFrame:
         seed=int(cfg.get("seed", 42)),
         n_regimes=int(cfg.get("n_regimes", 3)),
     )
-    return _maybe_features(raw, cfg)
+    return _maybe_features(raw, cfg, root=root)
 
 
 def _load_parquet(cfg: dict, *, root: Path) -> pl.DataFrame:
@@ -166,7 +223,7 @@ def _load_parquet(cfg: dict, *, root: Path) -> pl.DataFrame:
         if not cfg.get("include_labels", False):
             raw = synth.drop_label_column(raw)
         return raw
-    return _maybe_features(raw, cfg)
+    return _maybe_features(raw, cfg, root=root)
 
 
 def _load_csv(cfg: dict, *, root: Path) -> pl.DataFrame:
@@ -205,7 +262,7 @@ def _load_csv(cfg: dict, *, root: Path) -> pl.DataFrame:
             raise KeyError(f"CSV missing requested columns: {missing}")
         raw = frames.select_features(raw, list(columns))
 
-    return _maybe_features(raw, cfg)
+    return _maybe_features(raw, cfg, root=root)
 
 
 def _load_db(cfg: dict, *, root: Path) -> pl.DataFrame:
@@ -228,7 +285,9 @@ def _load_db(cfg: dict, *, root: Path) -> pl.DataFrame:
         sql=cfg.get("sql"),
     )
     return _maybe_features(
-        raw, {**cfg, "generate_features": cfg.get("generate_features", True)}
+        raw,
+        {**cfg, "generate_features": cfg.get("generate_features", True)},
+        root=root,
     )
 
 
