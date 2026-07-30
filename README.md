@@ -1,8 +1,8 @@
 # Gulfstream
 
-Gulfstream implements pipelines for detecting structural breaks between time series regimes. We use the example of FX and yield-curve data, but any time series dataset will work. The core data structure must be (one or more) **polars** `DataFrame` with a required `date` or `datetime` column (`gulfstream.common.frames`). 
+Gulfstream implements pipelines for detecting structural breaks between time series regimes. We use the example of FX and yield-curve data, but any time series dataset will work. The core data structure must be (one or more) **polars** `DataFrame` with a required `date` column (`gulfstream.common.frames`; values may be Date or Datetime). 
 
-Data can be fed in raw (leaving feature engineering to the user) or the user can supply their own feature engineering method or reuse internally available methods, see [`sources`](config/features/sources/) for examples. We also provide short-hand evaluation expressions (which can include user provided functions) for the creation of features through the use of [Panelyzer](https://github.com/FulgentMcGuffin/panelyzer), see [`notebook_ycs_panelyzer.yaml`](config/sources/notebook_ycs_panelyzer.yaml).
+Data can be fed in raw (leaving feature engineering to the user) or the user can supply their own feature engineering method or reuse internally available methods, see [`config/sources`](config/sources/) for examples. We also provide short-hand evaluation expressions (which can include user provided functions) for the creation of features through the use of [Panelyzer](https://github.com/FulgentMcGuffin/panelyzer), see [`notebook_ycs_panelyzer.yaml`](config/sources/notebook_ycs_panelyzer.yaml).
 
 Two pipeline modes share one CLI / API surface (`--mode graph1|graph2`):
 
@@ -19,7 +19,6 @@ Single-pass segmentation — shared by Graph 2 and the robustness/stability stag
 
 ```bash
 uv sync
-uv pip install -e .
 ```
 
 ## Run
@@ -123,17 +122,17 @@ Source configs under `config/sources/` map to the following loaders:
 | `type` | Key parameters |
 |--------|----------------|
 | `synthetic` | `case`, `regimes`, `features`, `durations`, `regime_params`, `seed` |
-| `faker` | `kind` (`yields` default, or `hmm_panel`), `n_days` / `n_years`, `n_features`, `n_regimes`, `n_repeating`, `seed`, optional yield `sources`/`tenors`/`fx_pairs` |
-| `parquet` | `path`, optional `create_if_missing`, `create_kind` (`faker_yields` \| `jump` \| `hmm_panel`) |
-| `csv` | `path`, `date_column`, optional `columns`, `sep`, `start_date`/`end_date` |
-| `duckdb` | `db_path`, `rate_table`, `sources`, `tenors`, `fx_pairs`, dates; optional `generate_features` + `feature_generator` (dotted path) / `feature_generator_kwargs` |
+| `faker` | `kind` (`yields` default, or `hmm_panel`), `n_days` / `n_years`, `n_features`, `n_regimes`, `n_repeating`, `seed`, optional yield `sources`/`tenors`/`fx_pairs`; optional `generate_features` + `feature_generator` / `feature_generator_kwargs` (yields only) |
+| `parquet` | `path`, optional `create_if_missing`, `create_kind` (`faker_yields` \| `jump` \| `hmm_panel`); optional `generate_features` + `feature_generator` / kwargs |
+| `csv` | `path`, `date_column`, optional `columns`, `sep`, `start_date`/`end_date`; optional `generate_features` + `feature_generator` / kwargs |
+| `duckdb` | `db_path`, `rate_table`, `sources`, `tenors`, `fx_pairs`, dates; optional `generate_features` + `feature_generator` / `feature_generator_kwargs` |
 | `sqlite` | same shape as `duckdb` |
 
-When `generate_features` is true (or auto-enabled for rate/FX frames), set `feature_generator` to a dotted callable path such as `gulfstream.data.feature_generation.generate_yield_features`. Pass non-default arguments under `feature_generator_kwargs`. Built-ins also include `identity_features`, `generate_ewma_features`, and `generate_panelyzer_features` (delegates to [panelyzer](https://github.com/FulgentMcGuffin/panelyzer) `feature_builder.create_features`; see `config/features/ycs_panelyzer_subset.yaml`).
+When `generate_features` is true (or auto-enabled for rate/FX-style frames that do not already look like `f0`/`f1`/… columns), set `feature_generator` to a dotted callable path such as `gulfstream.data.feature_generation.generate_yield_features`. Pass non-default arguments under `feature_generator_kwargs`. Built-ins also include `identity_features`, `generate_ewma_features`, and `generate_panelyzer_features` (delegates to [panelyzer](https://github.com/FulgentMcGuffin/panelyzer) `feature_builder.create_features` with caching forced off; see [`config/features/ycs_panelyzer_subset.yaml`](config/features/ycs_panelyzer_subset.yaml)).
 
 ### Tutorial notebooks
 
-For guided walkthroughs, see [`notebooks/`](notebooks/). `01_ycs_zero_rates_workflow.ipynb` covers user supplied yield curve and FX data; `02_equity_eod_workflow.ipynb` covers user supplied equity data; `03_faker_hmm_workflow.ipynb` / `04_parquet_hmm_workflow.ipynb` use a Faker HMM panel (in-memory or parquet); `05_ycs_panelyzer_workflow.ipynb` uses the YCS DuckDB window with **panelyzer** feature expressions (Parts A–B). All use the public API (`run_single_segmentation`, `refine_regimes`, `plot_regimes`, plus streaming / panel helpers in Part K) and walk through:
+For guided walkthroughs, see [`notebooks/`](notebooks/). `01` / `02` use user-supplied yield-curve+FX or equity DuckDB data; `03` / `04` use a Faker HMM panel (in-memory or parquet); `05` uses the YCS DuckDB window with **panelyzer** expressions (**Parts A–B only**). Notebooks `01`–`04` walk the public API through the parts below (`05` stops after B):
 
 | Part | Focus |
 |------|--------|
@@ -147,7 +146,7 @@ For guided walkthroughs, see [`notebooks/`](notebooks/). `01_ycs_zero_rates_work
 | J | Curve / ICA dimred (`nelson_siegel`, `fpca`, `dynamic_factor`, `ica`) |
 | K | Product: uncertainty + CI ribbons, Excel export, NDJSON events, streaming, panel |
 | L | Graph 2 retrain scores (`retrain.score_method`: `mse_on_diff`, `factor_residual`, `energy_split`, `mmd_split`, …) |
-| — | Comparison: covering + adjusted Rand index + breakpoint F1 vs PCA baseline |
+| — | Comparison: covering + adjusted Rand index + breakpoint F1 (vs PCA; synthetic notebooks also vs ground truth) |
 
 Launch instructions and matching example YAMLs are in [`notebooks/README.md`](notebooks/README.md). Notebook artifacts land under `outputs/notebooks/{ycs,equity,faker_hmm,parquet_hmm,ycs_panelyzer}/` (Part K → `…/product/`, Part L → `…/graph2_scores/`).
 
@@ -209,8 +208,8 @@ flowchart TB
 
 | Stage | What it does | Why it exists |
 |-------|----------------|---------------|
-| **A — Core detection** | Reduce dimensions, map to a kernel feature space, propose breakpoints with ruptures (PELT / Binseg / BottomUp), accept/reject with MMD or energy distance, then clean segments. | Produce a single segmentation (`bkpts`, labels, hierarchy, stats) that is the baseline for everything else. |
-| **B — Metrics** | Plot regimes, feature×regime L2 loss, regime distances/clusters, hierarchy trees, decision-tree explanations, transition probabilities; optionally perturb HPs (robustness) or drop sources/tenors/windows (stability). | Turn raw breakpoints into interpretable, stress-tested outputs under `outputs/metrics/`. |
+| **A — Core detection** | Reduce dimensions, map to a kernel feature space, propose breakpoints with ruptures (PELT / Binseg / BottomUp / WBS / BOCPD), accept/reject with `test.choice` (MMD / energy / …), then clean segments. | Produce a single segmentation (`bkpts`, labels, hierarchy, stats) that is the baseline for everything else. |
+| **B — Metrics** | Plot regimes (optional CI ribbons), feature×regime insights, regime distances/clusters, hierarchy trees, decision-tree explanations, transition probabilities; optionally perturb HPs (robustness) or drop sources/tenors/windows (stability); optional Excel / NDJSON export. | Turn raw breakpoints into interpretable, stress-tested outputs under `outputs/metrics/`. |
 
 Stage B is controlled by `metrics.plot` and by `robustness.enabled` / `stability.enabled` in YAML. `config/graph1/full_graph1.yaml` turns the deferred stages on; `default_core.yaml` keeps them off for faster smoke runs. Excel (`export.excel`) and NDJSON events (`events`) are written from `produce_all_metrics` even when plotting is off.
 
@@ -266,7 +265,7 @@ Example configs: `config/graph2/full_graph2.yaml` (default L2), `graph2_score_di
 | Seed | Start from nothing or from a prior Graph 1 export (`regimes_df`). |
 | Heatmap | Score which features / regimes look poorly explained under `score_method`. |
 | Select | Decide *where* and *on which columns* to spend another detection pass. |
-| Slice detect | Reuse Graph 1 core on `df.iloc[start:end][features]` only. |
+| Slice detect | Reuse Graph 1 core on the selected time slice and feature subset only. |
 | Merge | Attach the slice hierarchy with local indices, shift bkpts/stats to global time, then loop. |
 
 Final results are built from the **merged** `processed_bkpts`, not the seed list. The driver then writes optional Excel/report output, runs `produce_all_metrics`, and generates an HTML gallery.
@@ -277,7 +276,7 @@ Final results are built from the **merged** `processed_bkpts`, not the seed list
 
 ```mermaid
 flowchart LR
-  g1core["Graph 1 core path"] --> single["single_run.run_single_segmentation"]
+  g1core["Graph 1 core path"] --> single["single_pass.run_single_segmentation"]
   single --> g2loop["Graph 2 outer loop"]
   g1full["Graph 1 full driver"] --> metrics["produce_all_metrics"]
   g2loop --> metrics
@@ -294,13 +293,14 @@ gulfstream/
 ├── config/
 │   ├── graph1/             # default_core, full_graph1, classical_*, streaming/panel/export, …
 │   ├── graph2/             # full_graph2, graph2_score_*, interactive
-│   └── sources/            # synthetic, duckdb, parquet, csv, ...
+│   ├── features/           # panelyzer expression YAMLs (e.g. ycs_panelyzer_subset)
+│   └── sources/            # synthetic, duckdb, parquet, csv, notebook_*, …
 ├── src/gulfstream/
 │   ├── api.py              # Public programmatic façade
 │   ├── cli.py              # Entry: load configs → dispatch mode
 │   ├── common/             # frames, results, utils, options (enums), config (pydantic)
 │   ├── data/               # source_loader, synth, feature_generation
-│   ├── pipelines/          # graph1, graph2/, classical, single_pass, _shared
+│   ├── pipelines/          # graph1, graph2/, classical, single_pass, streaming, panel, _shared
 │   │   └── hamilton/       # Apache Hamilton DAGs (segmentation, load_features)
 │   ├── detection/          # algorithm, stat_tests, time_index, trees, hyperparams, postprocess
 │   ├── dimred/             # dispatcher, classical/*, model_based/, density
@@ -321,8 +321,8 @@ gulfstream/
 | **API / CLI** | `gulfstream.api` for programmatic use; CLI parses `--config`, `--source-config`, `--mode` and materializes `${IMG_DIR}` / `${LOG_DIR}`. |
 | **Config** | Pydantic `Config` models + `StrEnum` options (`common/config.py`, `common/options.py`). YAML keys unchanged. |
 | **Data** | Build a dated feature matrix from DuckDB/SQLite, parquet/CSV, or synthetic/faker generators. No detection logic. |
-| **Pipelines** | Mode orchestrators (`run_graph1` / `run_graph2`) plus classical backend helper and `single_pass`. Linear kernel core via Hamilton. |
-| **Detection** | Ruptures search (PELT / Binseg / BottomUp) + MMD / energy tests + hyperparams + postprocess; or classical hard-label detectors. |
+| **Pipelines** | Mode orchestrators (`run_graph1` / `run_graph2`) plus classical backend helper, `single_pass`, streaming, and panel joint. Linear kernel core via Hamilton. |
+| **Detection** | Ruptures search (PELT / Binseg / BottomUp / WBS / BOCPD) + `test.choice` validation + hyperparams + postprocess; or classical hard-label detectors. |
 | **Dimred / features** | Classical and model-based embeddings; RFF / Nyström maps. |
 | **Metrics** | Evaluation (covering, F1, ARI, …), plots (incl. CI ribbons), Graph 2 `regime_scores`, Excel writers, uncertainty, robustness, stability. |
 | **Ops** | NDJSON event stream for dashboards (`ops.events`). |
@@ -585,7 +585,7 @@ ham = temporal_hamming(baseline.bkpts, other.bkpts, n)["annotation_error"]
 fdr = fdr_control_breakpoints(candidates, pvalues, alpha=0.05)
 ```
 
-Notebooks compare runs with `covering_metric`, `breakpoint_precision_recall_f1`, and `adjusted_rand_index` against a PCA baseline.
+Notebooks compare runs with `covering_metric`, `breakpoint_precision_recall_f1`, and `adjusted_rand_index` (vs a PCA baseline; synthetic HMM notebooks also score against ground-truth breaks).
 
 ### Product features
 
