@@ -1,5 +1,7 @@
 # Gulfstream
 
+⭐ If you find this repository useful, please **consider starring it**.
+
 Gulfstream implements pipelines for detecting structural breaks between time series regimes. We use the example of FX and yield-curve data, but any time series dataset will work. The core data structure must be (one or more) **polars** `DataFrame` with a required `date` column (`gulfstream.common.frames`; values may be Date or Datetime). 
 
 Data can be fed in raw (leaving feature engineering to the user) or the user can supply their own feature engineering method or reuse internally available methods, see [`config/sources`](config/sources/) for examples. We also provide short-hand evaluation expressions (which can include user provided functions) for the creation of features through the use of [Panelyzer](https://github.com/FulgentMcGuffin/panelyzer), see [`notebook_ycs_panelyzer.yaml`](config/sources/notebook_ycs_panelyzer.yaml).
