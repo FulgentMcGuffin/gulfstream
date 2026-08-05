@@ -14,16 +14,15 @@ Classical detectors also appear as **soft dimred embeddings** (`algo.dimred: [km
 
 One of the results of this is the identification of stable regimes alongside their distinguishing markers:
 
-
-|                               |                                        |                                     |
-| ----------------------------- | -------------------------------------- | ----------------------------------- |
-| Shallow explainability tree   | Mahalanobis distance matrix            | Transition distances                |
+| | | |
+|:---:|:---:|:---:|
+| ![Shallow explainability tree](resources/images/03_shallow_exp_tree.png) | ![Mahalanobis distance matrix](resources/images/31_mahalanobis_matrix.png) | ![Transition distances](resources/images/32_transition_distance.png) |
 | *Shallow explainability tree* | *Regime pairwise Mahalanobis distance* | *Distance-based regime transitions* |
 
-
-
-
-*Graph 1 · PCA regime shading on stock log returns (equity notebook)*
+<p align="center">
+  <img src="resources/images/pca_regimes.png" alt="Graph 1 PCA regime plot" width="100%">
+</p>
+<p align="center"><em>Graph 1 · PCA regime shading on stock log returns (equity notebook)</em></p>
 
 For notebooks and scripts, prefer the **public API** in `gulfstream.api` (re-exported from `import gulfstream`): `load_features`, `detect_regimes`, `detect_regimes_incremental`, `detect_regimes_panel`, `refine_regimes`, `run_single_segmentation`, `plot_regimes`, and `regime_intervals`. Pipeline internals (`run_graph1`, Hamilton drivers, etc.) remain available but are not the supported entry point.
 
