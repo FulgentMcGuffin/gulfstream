@@ -13,6 +13,21 @@ from gulfstream.common import frames
 
 logger = logging.getLogger(__name__)
 
+
+def algo_grid(params: dict, key: str, default: list) -> list:
+    """Hyperparameter grid from ``params['algo'][key]``.
+
+    Pydantic ``AlgoConfig`` defaults many grids to ``[]``; treat empty as unset
+    so ``.get(key, default)`` fallbacks work in param generators.
+    """
+    raw = params.get("algo", {}).get(key)
+    if raw is None or raw == []:
+        return list(default)
+    if isinstance(raw, list):
+        return raw
+    return [raw]
+
+
 IMG_EXT = ".png"
 HTML_EXT = ".html"
 TXT_EXT = ".txt"

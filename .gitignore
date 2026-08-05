@@ -29,6 +29,10 @@ secrets.yaml
 .claude/
 CLAUDE.md
 
+# Cursor
+.cursor/
+CURSOR.md
+
 # Distribution / packaging
 .Python
 build/

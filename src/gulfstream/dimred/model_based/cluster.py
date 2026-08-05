@@ -7,7 +7,7 @@ import polars as pl
 from sklearn.cluster import KMeans
 from sklearn.mixture import BayesianGaussianMixture
 
-from gulfstream.common import frames
+from gulfstream.common import frames, utils
 from gulfstream.common.options import DimredMethod
 from gulfstream.common.results import DimredResults
 from gulfstream.dimred import density as dens
@@ -45,7 +45,7 @@ def _bayesian_gmm_generator(df: pl.DataFrame, params: dict):
     if DimredMethod.BAYESIAN_GMM not in params.get("algo", {}).get("dimred", []):
         return
     for regimes in params["algo"]["regimes"]:
-        for reg_covar in params["algo"].get("reg_covar", [1e-5]):
+        for reg_covar in utils.algo_grid(params, "reg_covar", [1e-5]):
             yield _bayesian_gmm_dimred(df, regimes=regimes, reg_covar=reg_covar)
 
 
@@ -74,7 +74,7 @@ def _kmeans_generator(df: pl.DataFrame, params: dict):
     if DimredMethod.KMEANS not in params.get("algo", {}).get("dimred", []):
         return
     for regimes in params["algo"]["regimes"]:
-        for random_state in params["algo"].get("random_state", [None]):
+        for random_state in utils.algo_grid(params, "random_state", [None]):
             yield _kmeans_dimred(df, regimes=regimes, random_state=random_state)
 
 

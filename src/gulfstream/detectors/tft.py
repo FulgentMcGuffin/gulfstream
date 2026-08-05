@@ -18,6 +18,39 @@ from gulfstream.common import frames
 
 logger = logging.getLogger(__name__)
 
+_TFT_RESERVED = frozenset({"time_idx", frames.DATE_COL})
+
+
+def _sanitize_tft_column_name(name: str, *, used: set[str]) -> str:
+    """Make a gulfstream feature name safe for pytorch-forecasting.
+
+    ``TimeSeriesDataSet`` rejects column / group ids containing ``'.'``.
+    """
+    safe = str(name).replace(".", "_")
+    base = safe
+    n = 2
+    while safe in used or safe in _TFT_RESERVED:
+        safe = f"{base}_{n}"
+        n += 1
+    used.add(safe)
+    return safe
+
+
+def _sanitize_feature_columns(df: pl.DataFrame) -> pl.DataFrame:
+    """Rename feature columns so TFT accepts them."""
+    used: set[str] = set(_TFT_RESERVED)
+    renames: dict[str, str] = {}
+    for col in frames.feature_columns(df):
+        safe = _sanitize_tft_column_name(col, used=used)
+        if safe != col:
+            renames[col] = safe
+    return df.rename(renames) if renames else df
+
+
+def sanitize_feature_columns_for_tft(df: pl.DataFrame) -> pl.DataFrame:
+    """Public alias: rename feature columns for pytorch-forecasting compatibility."""
+    return _sanitize_feature_columns(df)
+
 
 def _require_tft_stack():
     """Import TFT dependencies or raise a clear error.
@@ -67,6 +100,7 @@ def _require_tft_stack():
 def _feature_wide(df: pl.DataFrame) -> pl.DataFrame:
     """Dated gulfstream frame → wide numeric features + ``time_idx``."""
     df = frames.ensure_date_column(df)
+    df = _sanitize_feature_columns(df)
     feat_cols = frames.feature_columns(df)
     if not feat_cols:
         raise ValueError("TFT requires at least one feature column")

@@ -6,7 +6,7 @@ import logging
 import numpy as np
 import polars as pl
 
-from gulfstream.common import frames
+from gulfstream.common import frames, utils
 from gulfstream.common.options import DimredMethod
 from gulfstream.common.results import DimredResults
 from gulfstream.dimred.classical import _common as common
@@ -95,7 +95,7 @@ def _autoencoder_generator(df: pl.DataFrame, params: dict):
         for hidden in hiddens:
             for ep in epochs:
                 for lr in lrs:
-                    for rs in params["algo"].get("random_state", [42]):
+                    for rs in utils.algo_grid(params, "random_state", [42]):
                         try:
                             yield _autoencoder_dimred(
                                 df,

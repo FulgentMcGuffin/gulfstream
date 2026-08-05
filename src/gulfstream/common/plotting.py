@@ -30,6 +30,21 @@ from plotnine import (
 
 logger = logging.getLogger(__name__)
 
+# plotnine rejects saves when either dimension exceeds 25 inches (default limitsize).
+_PLOTNINE_MAX_INCHES = 25.0
+
+
+def cap_figure_inches(width: float, height: float) -> tuple[float, float]:
+    """Clamp ggplot save dimensions to plotnine's default 25-inch limit."""
+    return (
+        min(float(width), _PLOTNINE_MAX_INCHES),
+        min(float(height), _PLOTNINE_MAX_INCHES),
+    )
+
+
+def _cap_figure_inches(width: float, height: float) -> tuple[float, float]:
+    return cap_figure_inches(width, height)
+
 
 def matrix_to_long(
     matrix: np.ndarray,
@@ -73,9 +88,18 @@ def emit_ggplot(
     log_label: str = "plot",
 ) -> None:
     """Save and/or display a plotnine ggplot according to metrics ``mode``."""
+    width, height = cap_figure_inches(width, height)
+    plot = plot + theme(figure_size=(width, height))
     if mode in ("write", "display_and_write") and path:
         os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-        plot.save(path, width=width, height=height, dpi=dpi, verbose=False)
+        plot.save(
+            path,
+            width=width,
+            height=height,
+            dpi=dpi,
+            verbose=False,
+            limitsize=False,
+        )
         logger.info("Saved %s to %s", log_label, path)
     if mode in ("display", "display_and_write"):
         try:
@@ -111,7 +135,7 @@ def ggplot_heatmap(
         + theme_minimal()
         + theme(
             axis_text_x=element_text(rotation=45, ha="right"),
-            figure_size=(
+            figure_size=_cap_figure_inches(
                 max(4, matrix.shape[1] * 0.55 + 2),
                 max(3, matrix.shape[0] * 0.35 + 1.5),
             ),

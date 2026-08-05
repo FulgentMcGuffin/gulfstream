@@ -7,7 +7,7 @@ import numpy as np
 import polars as pl
 from sklearn.decomposition import PCA, SparsePCA
 
-from gulfstream.common import frames
+from gulfstream.common import frames, utils
 from gulfstream.common.options import DimredMethod
 from gulfstream.common.results import DimredResults
 from gulfstream.dimred.classical import _common as common
@@ -126,7 +126,7 @@ def _sparse_pca_generator(df: pl.DataFrame, params: dict):
     alphas = params["algo"].get("sparse_pca_alpha", [1.0])
     for rank in ranks:
         for alpha in alphas:
-            for rs in params["algo"].get("random_state", [42]):
+            for rs in utils.algo_grid(params, "random_state", [42]):
                 yield _sparse_pca_dimred(
                     df,
                     rank=int(rank),

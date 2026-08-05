@@ -37,7 +37,7 @@ def kmeans_param_generator(params: dict):
     """
     if 'kmeans' in params['algo']['regime_detection_algorithm']:
         for regimes in params['algo']['regimes']:
-            for random_state in params['algo'].get('random_state', [None]):
+            for random_state in common.algo_grid(params, "random_state", [None]):
                 yield {
                     'regime_detection_algorithm': 'kmeans',
                     'regimes': regimes,

@@ -35,6 +35,8 @@ Each workflow notebook defines `run_g1` / `run_g2` helpers that optionally retur
 
 Default calls (no flags) keep prior auto-display behavior.
 
+**TFT (Part I):** All notebooks call TFT through `run_g1` / `run_single_segmentation`, which uses `gulfstream.detectors.tft`. Feature columns containing `.` (common on equity tickers) are renamed automatically before training — no notebook-side sanitization is required.
+
 Artifacts land under `outputs/notebooks/{ycs,equity,faker_hmm,parquet_hmm,ycs_panelyzer}/…` (Part K under `…/product/`, Part L under `…/graph2_scores/`). Close any client that has a DuckDB file open if a notebook cannot acquire a read lock.
 
 Source YAMLs:

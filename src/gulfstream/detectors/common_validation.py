@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import logging
 
+from gulfstream.common.utils import algo_grid  # re-export for detector param generators
+
 logger = logging.getLogger(__name__)
 
 

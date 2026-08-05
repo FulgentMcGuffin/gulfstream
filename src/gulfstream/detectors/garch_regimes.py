@@ -143,7 +143,7 @@ def garch_param_generator(params: dict):
     for regimes in params["algo"].get("regimes", [2]):
         for p in params["algo"].get("garch_p", [1]):
             for q in params["algo"].get("garch_q", [1]):
-                for rs in params["algo"].get("random_state", [42]):
+                for rs in common.algo_grid(params, "random_state", [42]):
                     for dwell in params["algo"].get("garch_min_dwell", [10]):
                         yield {
                             "regime_detection_algorithm": "garch",

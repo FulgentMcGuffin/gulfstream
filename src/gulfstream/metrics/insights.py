@@ -65,6 +65,10 @@ def draw_error_heatmaps(
         fill_label=cbar_label,
         cmap="viridis",
     )
+    fig_w, fig_h = plotting.cap_figure_inches(
+        max(6, n_regimes),
+        max(4, len(ylabels) * 0.35),
+    )
     path = None
     if img_dir:
         os.makedirs(img_dir, exist_ok=True)
@@ -75,8 +79,8 @@ def draw_error_heatmaps(
         plot,
         path=path,
         mode=mode,
-        width=max(6, n_regimes),
-        height=max(4, len(ylabels) * 0.35),
+        width=fig_w,
+        height=fig_h,
         log_label="heatmap",
     )
     return plot

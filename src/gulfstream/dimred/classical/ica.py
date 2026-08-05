@@ -5,7 +5,7 @@ import numpy as np
 import polars as pl
 from sklearn.decomposition import FastICA
 
-from gulfstream.common import frames
+from gulfstream.common import frames, utils
 from gulfstream.common.options import DimredMethod
 from gulfstream.common.results import DimredResults
 from gulfstream.dimred.classical import _common as common
@@ -53,7 +53,7 @@ def _ica_generator(df: pl.DataFrame, params: dict):
         return
     ranks = params["algo"].get("rank") or [_resolve_rank(df, params)]
     for rank in ranks:
-        for rs in params["algo"].get("random_state", [42]):
+        for rs in utils.algo_grid(params, "random_state", [42]):
             for max_iter in params["algo"].get("ica_max_iter", [200]):
                 yield _ica_dimred(
                     df,

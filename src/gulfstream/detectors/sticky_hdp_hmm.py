@@ -137,7 +137,7 @@ def sticky_hdp_hmm_param_generator(params: dict):
             for alpha in params["algo"].get("hdp_alpha", [1.0]):
                 for gamma in params["algo"].get("hdp_gamma", [1.0]):
                     for n_iter in params["algo"].get("hmm_n_iter", [100]):
-                        for rs in params["algo"].get("random_state", [42]):
+                        for rs in common.algo_grid(params, "random_state", [42]):
                             yield {
                                 "regime_detection_algorithm": "sticky_hdp_hmm",
                                 "hdp_max_states": k,

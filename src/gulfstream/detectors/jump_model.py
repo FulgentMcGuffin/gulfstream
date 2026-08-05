@@ -103,9 +103,9 @@ def jump_model_param_generator(params: dict):
     if "jump_model" not in params["algo"].get("regime_detection_algorithm", []):
         return
     for regimes in params["algo"]["regimes"]:
-        for jump_penalty in params["algo"].get("jump_penalty", [1.0]):
-            for random_state in params["algo"].get("random_state", [42]):
-                for max_iter in params["algo"].get("jump_max_iter", [20]):
+        for jump_penalty in common.algo_grid(params, "jump_penalty", [1.0]):
+            for random_state in common.algo_grid(params, "random_state", [42]):
+                for max_iter in common.algo_grid(params, "jump_max_iter", [20]):
                     yield {
                         "regime_detection_algorithm": "jump_model",
                         "regimes": regimes,
