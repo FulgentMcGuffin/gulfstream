@@ -1,5 +1,7 @@
 # Gulfstream
 
+⭐ If you find this repository useful, please **consider starring it**.
+
 Gulfstream implements pipelines for detecting structural breaks between time series regimes. We use the example of FX and yield-curve data, but any time series dataset will work. The core data structure must be (one or more) **polars** `DataFrame` with a required `date` column (`gulfstream.common.frames`; values may be Date or Datetime). 
 
 Two pipeline modes share one CLI / API surface (`--mode graph1|graph2`):
