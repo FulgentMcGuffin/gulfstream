@@ -42,7 +42,7 @@ def _heatmap_helper(
     *,
     score_method: str = "mse_to_mean",
     score_kwargs: dict | None = None,
-) -> tuple[np.ndarray, tuple[int, int]]:
+) -> tuple[np.ndarray, tuple[int, int], object]:
     from gulfstream.metrics import regime_scores
 
     score_kwargs = score_kwargs or {}
@@ -53,7 +53,7 @@ def _heatmap_helper(
     )
     # mse_to_mean keeps the legacy ``..._avg_feature_L2`` gallery name.
     name = f"retrain_iteration_{iters}_{meta['gallery_suffix']}"
-    post_information_visualization.draw_error_heatmaps(
+    plot = post_information_visualization.draw_error_heatmaps(
         loss_matrix,
         df,
         bkpts,
@@ -64,7 +64,7 @@ def _heatmap_helper(
         gallery_filename=name,
     )
     logger.info("Saved error matrix to %s.", image_dir + utils.img_gallery_filename(name))
-    return loss_matrix, tuple(np.unravel_index(np.argmax(loss_matrix), loss_matrix.shape))
+    return loss_matrix, tuple(np.unravel_index(np.argmax(loss_matrix), loss_matrix.shape)), plot
 
 
 def _finalize_results(
@@ -79,6 +79,7 @@ def _finalize_results(
     bkpt_index_dict: dict,
     relative_dir: str,
     image_dir: str,
+    collected_plots: dict | None = None,
 ) -> SegmentResults:
     mode = params["metrics"].get("mode", "write")
     plot = params["metrics"].get("plot", False)
@@ -120,6 +121,7 @@ def _finalize_results(
             sorted(processed_bkpts), df_full.height
         ),
         params=params_copy,
+        plots=dict(collected_plots or {}),
     )
 
     results_writers.report_regime_statistics(df_full, params_copy, proc_res, unproc_res)

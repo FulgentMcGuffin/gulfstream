@@ -65,6 +65,7 @@ def candidate_breakpoints(
     search_method: str = SearchMethod.PELT,
     min_size: int = 10,
     algo_params: dict | None = None,
+    n_bkps: int | None = None,
 ) -> list[int]:
     """Find candidate breakpoints via PELT, Binseg, BottomUp, WBS, or BOCPD."""
     from gulfstream.detection import search as search_mod
@@ -73,9 +74,12 @@ def candidate_breakpoints(
     method = str(search_method).lower()
     n = len(signal)
     algo_params = algo_params or {}
-    n_bkps = max(1, n // 50)
+    n_bkps = max(1, n // 50) if n_bkps is None else max(1, int(n_bkps))
     try:
-        if method == SearchMethod.BINSEG:
+        if n_bkps == 1 and method in (SearchMethod.PELT, SearchMethod.BOCPD, SearchMethod.WBS, "wbs", "bocpd"):
+            algo = rpt.Dynp(model=cost, params=cost_params, min_size=min_size, jump=5)
+            bkpts = algo.fit_predict(signal, n_bkps=1)
+        elif method == SearchMethod.BINSEG:
             algo = rpt.Binseg(model=cost, params=cost_params, min_size=min_size, jump=5)
             bkpts = algo.fit_predict(signal, n_bkps=n_bkps)
         elif method == SearchMethod.BOTTOMUP:
@@ -152,6 +156,14 @@ def find_and_test_bkpts(
     stats: dict[int, tuple] = {}
     hierarchy: dict[int, int] = {}
 
+    max_candidates = 40
+    recursive_n_bkps = case_params.get("algo", {}).get("recursive_n_bkps")
+    if recursive_n_bkps is not None:
+        recursive_n_bkps = int(recursive_n_bkps[0] if isinstance(recursive_n_bkps, list) else recursive_n_bkps)
+    else:
+        # Recursive splits need one strong candidate per segment, not full PELT lists.
+        recursive_n_bkps = 1
+
     def recurse(start: int, end: int, level: int) -> None:
         if level > depth or end - start < 30:
             return
@@ -162,10 +174,21 @@ def find_and_test_bkpts(
             search_method=search_method,
             min_size=10,
             algo_params=case_params.get("algo", {}),
+            n_bkps=recursive_n_bkps,
         )
         if not local:
             return
-        for loc in local[:3]:
+
+        # Full-series PELT can still return many candidates; subsample when needed.
+        if recursive_n_bkps != 1 and len(local) > max_candidates:
+            idx = np.linspace(0, len(local) - 1, max_candidates, dtype=int)
+            local = [local[i] for i in idx]
+
+        best_bkpt: int | None = None
+        best_pval = 1.0
+        best_stat = -np.inf
+
+        for loc in local:
             bkpt = start + loc
             if bkpt <= start + 5 or bkpt >= end - 5:
                 continue
@@ -203,13 +226,17 @@ def find_and_test_bkpts(
 
             stats[bkpt] = (stat, pval)
             hierarchy[bkpt] = level
-            if accept:
-                valid.append(bkpt)
-                recurse(start, bkpt, level + 1)
-                recurse(bkpt, end, level + 1)
-            else:
+            if accept and (pval < best_pval or (pval == best_pval and stat > best_stat)):
+                best_pval = pval
+                best_stat = stat
+                best_bkpt = bkpt
+            elif not accept:
                 invalid.append(bkpt)
-            break
+
+        if best_bkpt is not None:
+            valid.append(best_bkpt)
+            recurse(start, best_bkpt, level + 1)
+            recurse(best_bkpt, end, level + 1)
 
     recurse(0, n, 1)
     valid = sorted(set(valid))

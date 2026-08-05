@@ -45,7 +45,9 @@ def plot_market_regimes(
     mode: Literal["display", "write", "display_and_write"] = "display",
     img_dir: str | None = None,
     name: str = "regime_plot",
-) -> None:
+    *,
+    emit: bool = True,
+) -> ggplot:
     invalid_bkpts = invalid_bkpts or []
     valid_bkpts = valid_bkpts or []
     low_confidence_bkpts = low_confidence_bkpts or []
@@ -191,14 +193,16 @@ def plot_market_regimes(
             raise ValueError("img_dir required when writing plots")
         os.makedirs(img_dir, exist_ok=True)
         path = os.path.join(img_dir, utils.img_gallery_filename(name).lstrip("/"))
-    plotting.emit_ggplot(
-        plot,
-        path=path,
-        mode=mode,
-        width=14,
-        height=max(3, 2.8 * len(variables)),
-        log_label="regime plot",
-    )
+    if emit:
+        plotting.emit_ggplot(
+            plot,
+            path=path,
+            mode=mode,
+            width=14,
+            height=max(3, 2.8 * len(variables)),
+            log_label="regime plot",
+        )
+    return plot
 
 
 def produce_all_regime_visualization_tools(

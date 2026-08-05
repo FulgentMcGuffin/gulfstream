@@ -142,7 +142,8 @@ def _targeted_retrain(df_full: pl.DataFrame, params: dict) -> SegmentResults | N
         score_kwargs = dict((params.get("retrain") or {}).get("score") or {})
 
         iters = 0
-        loss_matrix, worst_index = _heatmap_helper(
+        collected_plots: dict[str, object] = {}
+        loss_matrix, worst_index, heatmap = _heatmap_helper(
             df_filtered,
             processed_bkpts,
             iters,
@@ -150,6 +151,7 @@ def _targeted_retrain(df_full: pl.DataFrame, params: dict) -> SegmentResults | N
             score_method=score_method,
             score_kwargs=score_kwargs,
         )
+        collected_plots[f"retrain_iteration_{iters}"] = heatmap
         worst_loss = float(loss_matrix[worst_index])
         num_worst_features = min(
             int(params["retrain"].get("num_worst_features", 5)), len(features)
@@ -203,7 +205,7 @@ def _targeted_retrain(df_full: pl.DataFrame, params: dict) -> SegmentResults | N
                 print(json.dumps(bkpt_hierarchy, indent=4))
 
                 iters += 1
-                loss_matrix, worst_index = _heatmap_helper(
+                loss_matrix, worst_index, heatmap = _heatmap_helper(
                     df_filtered,
                     processed_bkpts,
                     iters,
@@ -211,6 +213,7 @@ def _targeted_retrain(df_full: pl.DataFrame, params: dict) -> SegmentResults | N
                     score_method=score_method,
                     score_kwargs=score_kwargs,
                 )
+                collected_plots[f"retrain_iteration_{iters}"] = heatmap
                 worst_loss = float(loss_matrix[worst_index])
         else:
             quits = ["q", "quit", "exit", "stop"]
@@ -256,7 +259,7 @@ def _targeted_retrain(df_full: pl.DataFrame, params: dict) -> SegmentResults | N
                 print(json.dumps(bkpt_hierarchy, indent=4))
 
                 iters += 1
-                loss_matrix, worst_index = _heatmap_helper(
+                loss_matrix, worst_index, heatmap = _heatmap_helper(
                     df_filtered,
                     processed_bkpts,
                     iters,
@@ -264,6 +267,7 @@ def _targeted_retrain(df_full: pl.DataFrame, params: dict) -> SegmentResults | N
                     score_method=score_method,
                     score_kwargs=score_kwargs,
                 )
+                collected_plots[f"retrain_iteration_{iters}"] = heatmap
                 regime_raw = _get_user_requested_regime(
                     processed_bkpts, int(worst_index[1])
                 )
@@ -280,6 +284,7 @@ def _targeted_retrain(df_full: pl.DataFrame, params: dict) -> SegmentResults | N
             bkpt_index_dict=bkpt_index_dict,
             relative_dir=relative_dir,
             image_dir=image_dir,
+            collected_plots=collected_plots,
         )
         logger.info("Targeted retrain done. Outputs in %s", relative_dir)
         return proc_res

@@ -8,6 +8,7 @@ from typing import Literal
 
 import numpy as np
 import polars as pl
+from plotnine import ggplot
 from sklearn.metrics import pairwise_distances
 
 from gulfstream.common import frames, plotting, utils
@@ -49,7 +50,7 @@ def draw_error_heatmaps(
     img_dir: str | None = None,
     gallery_filename: str = "avg_feature_L2",
     feature_names: list[str] | None = None,
-) -> None:
+) -> ggplot:
     """Draw a feature×regime L2 heatmap and optionally save it."""
     n_regimes = loss_matrix.shape[1]
     feat_cols = frames.feature_columns(df)
@@ -78,6 +79,7 @@ def draw_error_heatmaps(
         height=max(4, len(ylabels) * 0.35),
         log_label="heatmap",
     )
+    return plot
 
 
 def _regime_feature_means(

@@ -25,6 +25,16 @@ uv run jupyter lab notebooks
 
 Or open the `.ipynb` files in Cursor / VS Code with the project `.venv`.
 
+### Plotnine return helpers
+
+Each workflow notebook defines `run_g1` / `run_g2` helpers that optionally return plotnine `ggplot` objects for notebook inspection:
+
+- **Graph 1** — `proc, fig = run_g1(..., return_fig=True)` returns the regime shading plot as `fig`.
+- **Graph 2** — `out_dir, refined, figs = run_g2(..., return_figs=True)` returns a dict `figs` with keys `retrain_iteration_0`, … (score heatmaps) and `regime` (final shading plot).
+- **Standalone `plot_regimes(...)`** — Part K product cells assign the returned ggplot to a `fig_*` variable (`emit=False`) and display it explicitly.
+
+Default calls (no flags) keep prior auto-display behavior.
+
 Artifacts land under `outputs/notebooks/{ycs,equity,faker_hmm,parquet_hmm,ycs_panelyzer}/…` (Part K under `…/product/`, Part L under `…/graph2_scores/`). Close any client that has a DuckDB file open if a notebook cannot acquire a read lock.
 
 Source YAMLs:

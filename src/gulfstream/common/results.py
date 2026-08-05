@@ -34,6 +34,8 @@ class SegmentResults:
     bkpt_ci: dict[int, tuple[int, int]] = field(default_factory=dict)
     # Product: fraction of panel groups supporting each consensus break
     panel_support: dict[int, float] = field(default_factory=dict)
+    # Optional plotnine figures keyed by name (e.g. Graph 2 retrain heatmaps)
+    plots: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass

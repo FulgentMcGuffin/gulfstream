@@ -103,12 +103,13 @@ def plot_regimes(
     title: str = "",
     mode: str = "display",
     img_dir: str | None = None,
-) -> None:
-    """Plot regime shading for selected features."""
+    emit: bool = True,
+):
+    """Plot regime shading for selected features; return the plotnine ggplot."""
     dates = df["date"].to_list() if "date" in df.columns else list(range(df.height))
     hierarchy = results.hierarchy or {b: 1 for b in results.bkpts}
     regimes_df = get_regime_intervals(hierarchy, dates)
-    plot_market_regimes(
+    return plot_market_regimes(
         df,
         regimes_df,
         title=title,
@@ -120,6 +121,7 @@ def plot_regimes(
         plot_ci_ribbons=True,
         mode=mode,
         img_dir=img_dir,
+        emit=emit,
     )
 
 
