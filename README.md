@@ -2,14 +2,20 @@
 
 Gulfstream implements pipelines for detecting structural breaks between time series regimes. We use the example of FX and yield-curve data, but any time series dataset will work. The core data structure must be (one or more) **polars** `DataFrame` with a required `date` column (`gulfstream.common.frames`; values may be Date or Datetime). 
 
-Data can be fed in raw (leaving feature engineering to the user) or the user can supply their own feature engineering method or reuse internally available methods, see [`config/sources`](config/sources/) for examples. We also provide short-hand evaluation expressions (which can include user provided functions) for the creation of features through the use of [Panelyzer](https://github.com/FulgentMcGuffin/panelyzer), see [`notebook_ycs_panelyzer.yaml`](config/sources/notebook_ycs_panelyzer.yaml).
-
 Two pipeline modes share one CLI / API surface (`--mode graph1|graph2`):
 
+* **Feature engineering (optional)** — Data can be fed in raw (leaving feature engineering to the user) or the user can supply their own feature engineering method or reuse internally available methods, see [`config/sources`](config/sources/) for examples. We also provide short-hand evaluation expressions (which can include user provided functions) for the creation of features through the use of [Panelyzer](https://github.com/FulgentMcGuffin/panelyzer), see [`notebook_ycs_panelyzer.yaml`](config/sources/notebook_ycs_panelyzer.yaml).
 * **Graph 1** — one-shot regime detection over the full series. Default backend (`algo.detection_backend: kernel_ruptures`): features → PCA/kPCA/DMD → RFF → ruptures (PELT / Binseg / BottomUp / WBS / BOCPD) → MMD, energy-distance, or other `test.choice` methods → postprocess, then optional plots, insights, explainability, robustness, stability, uncertainty, Excel export, and NDJSON events. Set `detection_backend: classical` to use hard-label detectors (`ClassicalDetector`: k-means, HMM, jump model, sticky HDP-HMM, GARCH, MS-VAR, …) instead of the ruptures+MMD stack.
 * **Graph 2** — iterative refinement of a Graph 1 segmentation: build a feature×regime score heatmap (`retrain.score_method`, default L2), pick the worst regime and features, re-run detection on that slice, merge breakpoints, and repeat until the score is below `threshold` or `max_iter` is hit (works with either backend).
 
 Classical detectors also appear as **soft dimred embeddings** (`algo.dimred: [kmeans|hmm|…]`) feeding the kernel_ruptures path — orthogonal to hard-label `detection_backend: classical`.
+
+One of the results of this is the identification of stable regimes alongside their distinguishing markers:
+
+| | | |
+|:---:|:---:|:---:|
+| ![Shallow explainability tree](resources/images/03_shallow_exp_tree.png) | ![Mahalanobis distance matrix](resources/images/31_mahalanobis_matrix.png) | ![Transition distances](resources/images/32_transition_distance.png) |
+| *Shallow explainability tree* | *Regime pairwise Mahalanobis distance* | *Distance-based regime transitions* |
 
 For notebooks and scripts, prefer the **public API** in `gulfstream.api` (re-exported from `import gulfstream`): `load_features`, `detect_regimes`, `detect_regimes_incremental`, `detect_regimes_panel`, `refine_regimes`, `run_single_segmentation`, `plot_regimes`, and `regime_intervals`. Pipeline internals (`run_graph1`, Hamilton drivers, etc.) remain available but are not the supported entry point.
 

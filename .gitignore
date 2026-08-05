@@ -21,6 +21,14 @@ secrets.yaml
 # C extensions
 *.so
 
+# mex
+.mex/
+*mex_warnings.txt
+
+# Claude
+.claude/
+CLAUDE.md
+
 # Distribution / packaging
 .Python
 build/

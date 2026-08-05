@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "arch>=8.0.0",
+    "asttokens>=3.0.2",
     "duckdb>=1.2.0",
     "faiss-cpu",
     "faker",
@@ -53,6 +54,8 @@ panelyzer = { git = "https://github.com/FulgentMcGuffin/panelyzer.git" }
 
 [dependency-groups]
 dev = [
+    "comm>=0.2.3",
+    "ipykernel>=7.3.0",
     "pytest>=9.1.1",
 ]
 
