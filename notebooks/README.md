@@ -13,9 +13,9 @@ Walkthroughs using the public `gulfstream` API.
 Each notebook:
 
 - **Parts A–E** — PCA / kPCA / DMD / t-SNE / UMAP with Graph 1 (`run_single_segmentation`) + Graph 2 (`refine_regimes`)
-- **Parts F–L** — Search, tests, ESS window, classical detectors, TFT, curve/ICA dimred
-- **Part K** — Product: uncertainty bands + CI ribbon overlays, Excel export (`export.excel`), NDJSON event stream (`events`), streaming Graph 1, panel joint breakpoints
-- **Part L** — Graph 2 retrain scores (`retrain.score_method`): compare pick tables, then run Graph 2 with `mse_on_diff` / `factor_residual` / `energy_split` / `mmd_split`
+- **Parts F–N** — Search, tests, ESS window, classical detectors, TFT, curve/ICA dimred
+- **Part M** — Product: uncertainty bands + CI ribbon overlays, Excel export (`export.excel`), NDJSON event stream (`events`), streaming Graph 1, panel joint breakpoints
+- **Part N** — Graph 2 retrain scores (`retrain.score_method`): compare pick tables, then run Graph 2 with `mse_on_diff` / `factor_residual` / `energy_split` / `mmd_split`
 - **Comparison** — covering, **adjusted Rand index**, and breakpoint F1 (notebooks 03/04 score against **ground-truth** outer breakpoints)
 
 ```bash
@@ -37,7 +37,7 @@ Default calls (no flags) keep prior auto-display behavior.
 
 **TFT (Part I):** All notebooks call TFT through `run_g1` / `run_single_segmentation`, which uses `gulfstream.detectors.tft`. Feature columns containing `.` (common on equity tickers) are renamed automatically before training — no notebook-side sanitization is required.
 
-Artifacts land under `outputs/notebooks/{ycs,equity,faker_hmm,parquet_hmm,ycs_panelyzer}/…` (Part K under `…/product/`, Part L under `…/graph2_scores/`). Close any client that has a DuckDB file open if a notebook cannot acquire a read lock.
+Artifacts land under `outputs/notebooks/{ycs,equity,faker_hmm,parquet_hmm,ycs_panelyzer}/…` (Part M under `…/product/`, Part N under `…/graph2_scores/`). Close any client that has a DuckDB file open if a notebook cannot acquire a read lock.
 
 Source YAMLs:
 

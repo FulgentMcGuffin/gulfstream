@@ -156,7 +156,7 @@ def row_index_for_date(
 
 
 def to_pandas(df: pl.DataFrame, *, date_col: str = DATE_COL):
-    """Boundary helper: polars → pandas with DatetimeIndex named like legacy code."""
+    """Boundary helper: polars → pandas with DatetimeIndex named like classical code."""
     import pandas as pd
 
     pdf = df.to_pandas()

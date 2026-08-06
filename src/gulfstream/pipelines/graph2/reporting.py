@@ -51,7 +51,7 @@ def _heatmap_helper(
     loss_matrix = regime_scores.score_feature_regime(
         df, bkpts, score_method, **score_kwargs
     )
-    # mse_to_mean keeps the legacy ``..._avg_feature_L2`` gallery name.
+    # mse_to_mean keeps the classical ``..._avg_feature_L2`` gallery name.
     name = f"retrain_iteration_{iters}_{meta['gallery_suffix']}"
     plot = post_information_visualization.draw_error_heatmaps(
         loss_matrix,

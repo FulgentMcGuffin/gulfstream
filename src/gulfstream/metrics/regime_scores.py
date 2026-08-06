@@ -21,7 +21,7 @@ ScoreFn = Callable[..., np.ndarray]
 
 
 def _mse_to_mean(df: pl.DataFrame, bkpts: list[int], **_kwargs: Any) -> np.ndarray:
-    """Mean squared deviation from regime mean (legacy L2 heatmap)."""
+    """Mean squared deviation from regime mean (classical L2 heatmap)."""
     return avg_features_loss(df, bkpts)
 
 
@@ -328,7 +328,7 @@ SCORE_META: dict[str, dict[str, str]] = {
     RetrainScoreMethod.MSE_TO_MEAN: {
         "title": "Average daily L2 loss per feature in each regime (in bps)",
         "cbar": "average L2 dist to mean (measured in bps)",
-        # Keep legacy gallery filename so existing HTML galleries still match.
+        # Keep classical gallery filename so existing HTML galleries still match.
         "gallery_suffix": "avg_feature_L2",
         "log_name": "L2",
     },

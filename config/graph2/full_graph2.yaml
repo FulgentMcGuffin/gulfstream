@@ -74,7 +74,7 @@ retrain:
   interactive: false
   features: ["__auto__"]
   num_worst_features: 5
-  # Feature×regime heatmap used to pick the next slice (default = legacy L2).
+  # Feature×regime heatmap used to pick the next slice (default = classical L2).
   # Threshold is in the chosen score's units — retune when switching methods.
   score_method: mse_to_mean
   score: {}

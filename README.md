@@ -271,7 +271,7 @@ In **interactive mode** (`retrain.interactive: true`), the same steps run, but y
 
 #### Retrain score methods (`retrain.score_method`)
 
-The heatmap is a pluggable **feature × regime** score (higher = refine first). Default `mse_to_mean` is the legacy L2-to-regime-mean matrix. `threshold` **is in the chosen score’s units** — retune when switching methods. Method-specific knobs go under `retrain.score`.
+The heatmap is a pluggable **feature × regime** score (higher = refine first). Default `mse_to_mean` is the classical L2-to-regime-mean matrix. `threshold` **is in the chosen score’s units** — retune when switching methods. Method-specific knobs go under `retrain.score`.
 
 
 | `score_method`          | Measures                                          | Good for                             |

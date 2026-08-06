@@ -996,6 +996,7 @@ dependencies = [
     { name = "matplotlib" },
     { name = "mcp-data" },
     { name = "networkx" },
+    { name = "numba" },
     { name = "numpy" },
     { name = "openpyxl" },
     { name = "pandas" },
@@ -1015,6 +1016,7 @@ dependencies = [
     { name = "statsmodels", version = "0.14.4", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform == 'emscripten'" },
     { name = "statsmodels", version = "0.14.6", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform != 'emscripten'" },
     { name = "torch" },
+    { name = "umap-learn" },
 ]
 
 [package.dev-dependencies]
@@ -1038,6 +1040,7 @@ requires-dist = [
     { name = "matplotlib", specifier = ">=3.10.0" },
     { name = "mcp-data", git = "https://github.com/FulgentMcGuffin/mcp_data.git" },
     { name = "networkx", specifier = ">=3.6.1" },
+    { name = "numba", specifier = ">=0.66" },
     { name = "numpy", specifier = ">=2.5.1" },
     { name = "openpyxl", specifier = ">=3.1.0" },
     { name = "pandas", specifier = ">=2.2.0" },
@@ -1056,6 +1059,7 @@ requires-dist = [
     { name = "sf-hamilton", specifier = ">=1.90.0" },
     { name = "statsmodels", specifier = ">=0.14.0" },
     { name = "torch", specifier = ">=2.13.0" },
+    { name = "umap-learn", specifier = ">=0.5.7" },
 ]
 
 [package.metadata.requires-dev]
@@ -1646,6 +1650,27 @@ wheels = [
 ]
 
 [[package]]
+name = "llvmlite"
+version = "0.49.0rc1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/f9/d4/914941f15a96138e1312fe0b3771da8bcb231aba2ac99f3cf98ecc7a5f1d/llvmlite-0.49.0rc1.tar.gz", hash = "sha256:73843b8a3189c9231eae9666b073fe545a0ff677b519ea902ea4e494950c34cc", size = 194349, upload-time = "2026-07-23T01:40:48.562Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/36/c6/48dc7d82698c7aa0c715a56bdd48e836a4c897e3f5a338b532583fe4e731/llvmlite-0.49.0rc1-cp313-cp313-macosx_12_0_arm64.whl", hash = "sha256:8164955c7e41b2a655a7545521f784dfd2f731579255d7a47d2002745ba464cf", size = 40479185, upload-time = "2026-07-23T01:39:28.906Z" },
+    { url = "https://files.pythonhosted.org/packages/8d/70/43706ac0ca224eea367f13019d9c40e4ec4faba11aedb8568d2c4379608d/llvmlite-0.49.0rc1-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:60e038bd62ebe1c5f4a6829190f4a840f9b80cc6247ab4bb8d5bd768c74035f1", size = 59890628, upload-time = "2026-07-23T01:39:36.638Z" },
+    { url = "https://files.pythonhosted.org/packages/e0/bf/eb1af338e66d3b292e0e29e6bb526b93276f5eadd736892eeeed68edb300/llvmlite-0.49.0rc1-cp313-cp313-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:ce651e29e955548a6b26ef6cb0a06ad503172775cf79e8d3bd53b54aa71a5e25", size = 58344449, upload-time = "2026-07-23T01:39:43.651Z" },
+    { url = "https://files.pythonhosted.org/packages/1c/97/cd18f9d4d0bf159ed3756fd5ddbcdd084eb756453311bcb1f590bdb02c5f/llvmlite-0.49.0rc1-cp313-cp313-win_amd64.whl", hash = "sha256:54e43f1e890b8f6985894035aa5f72f160e3ba6db15786a95ae738e011073b4a", size = 41865513, upload-time = "2026-07-23T01:39:49.735Z" },
+    { url = "https://files.pythonhosted.org/packages/ff/51/64168dbb8c458f1395cd1d1ab2697ad777e7d37ea04a31b24402bc3f1fb5/llvmlite-0.49.0rc1-cp314-cp314-macosx_12_0_arm64.whl", hash = "sha256:2cafbd71cdfc03b70989cc54506e8474f346ea81716a6b8309f90030d6768768", size = 40479185, upload-time = "2026-07-23T01:39:54.954Z" },
+    { url = "https://files.pythonhosted.org/packages/36/f2/357af97ddce6db79c2e9a53cfdbc1985bf77832f4dbec11d1a002c9e3610/llvmlite-0.49.0rc1-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:d78f9616ab0c1992cad1a536d79bf8f5c4e459d06cbfbb7281550dd4513d63f9", size = 59890626, upload-time = "2026-07-23T01:40:01.52Z" },
+    { url = "https://files.pythonhosted.org/packages/d8/72/0ca4350dace18382cc6be8d1a55938b55773a7ca9a57779ac1b149fcf2d3/llvmlite-0.49.0rc1-cp314-cp314-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:2ca997022166e67dbfc44c9cd5efbd93515ae23e1719af609c592185265edf15", size = 58344450, upload-time = "2026-07-23T01:40:08.728Z" },
+    { url = "https://files.pythonhosted.org/packages/35/cb/be1f130587be4e2ce08c9b6682b44d54667f9dcfb7fba09f36d7c73e1138/llvmlite-0.49.0rc1-cp314-cp314-win_amd64.whl", hash = "sha256:d94ff01320f7078123613216713868310dd2accd0eebb8970b8b007c0368482b", size = 42986564, upload-time = "2026-07-23T01:40:14.849Z" },
+    { url = "https://files.pythonhosted.org/packages/93/15/3b0dad46b87163e42f3622ad1f7ef0c7abf7250e770ae0fa4c578206d015/llvmlite-0.49.0rc1-cp314-cp314-win_arm64.whl", hash = "sha256:dfd34d4989086a213dc7f8fdd98736465b6fc69a3718169bdafd1d7a14f79f2c", size = 37441831, upload-time = "2026-07-23T01:40:20.239Z" },
+    { url = "https://files.pythonhosted.org/packages/49/c8/c0ed414bbcefbfb5401a2a22af479a4d94514c81b2dd8e6721b44082e906/llvmlite-0.49.0rc1-cp314-cp314t-macosx_12_0_arm64.whl", hash = "sha256:5fb0d6b08fd17f5804a224f34f7c1816b72c46e631acd17ae1119f1f5f1328a3", size = 40479186, upload-time = "2026-07-23T01:40:25.885Z" },
+    { url = "https://files.pythonhosted.org/packages/2c/ac/1edfb625dff586224274234ba783cc18eda45a060935a9fb4ed266c8633e/llvmlite-0.49.0rc1-cp314-cp314t-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:8f436576dbbb3f78759486e39460405cb208282092484a7ea1d05fe328d9d64f", size = 59890627, upload-time = "2026-07-23T01:40:32.723Z" },
+    { url = "https://files.pythonhosted.org/packages/f3/e1/413956f215051bfbbb565b2614c60b9541b48861d8494deec618566cb051/llvmlite-0.49.0rc1-cp314-cp314t-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:ba1b4c3e7a8fb5ef460a5c99581eb01531d3844cbc4e2b6c2aca76931c4aac57", size = 58344451, upload-time = "2026-07-23T01:40:39.208Z" },
+    { url = "https://files.pythonhosted.org/packages/76/37/df05494016fbe218ee2b7cf9b99281333e1fc85fdc364b5b82f036a63cf0/llvmlite-0.49.0rc1-cp314-cp314t-win_amd64.whl", hash = "sha256:1066afb564504d903ac9e0e8889c09ac5e999b3a27bacbd66ef2d9d3f1f91d53", size = 42986574, upload-time = "2026-07-23T01:40:45.756Z" },
+]
+
+[[package]]
 name = "markupsafe"
 version = "3.0.3"
 source = { registry = "https://pypi.org/simple" }
@@ -1950,6 +1975,31 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/6a/51/63fe664f3908c97be9d2e4f1158eb633317598cfa6e1fc14af5383f17512/networkx-3.6.1.tar.gz", hash = "sha256:26b7c357accc0c8cde558ad486283728b65b6a95d85ee1cd66bafab4c8168509", size = 2517025, upload-time = "2025-12-08T17:02:39.908Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/9e/c9/b2622292ea83fbb4ec318f5b9ab867d0a28ab43c5717bb85b0a5f6b3b0a4/networkx-3.6.1-py3-none-any.whl", hash = "sha256:d47fbf302e7d9cbbb9e2555a0d267983d2aa476bac30e90dfbe5669bd57f3762", size = 2068504, upload-time = "2025-12-08T17:02:38.159Z" },
+]
+
+[[package]]
+name = "numba"
+version = "0.67.0rc1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "llvmlite" },
+    { name = "numpy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/04/bc/199f41bdbaeffad35bd95c37bc341416934b50bc6bb6c4c1480c46d8c9af/numba-0.67.0rc1.tar.gz", hash = "sha256:36d3f50cbb992a4c40a53f070eb04ae774d8be5c0c733994307f65e134112e3e", size = 2831376, upload-time = "2026-07-24T06:19:01.91Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/bf/ea/b79d30e74731053e2ba0dc6e54bf25c785443dafa14c139f68b87757583c/numba-0.67.0rc1-cp313-cp313-macosx_12_0_arm64.whl", hash = "sha256:3c32c9f7a6577a7997a5b65c3d75b4732cd59088bfc5856cf1e7cb435f0b1a87", size = 2744918, upload-time = "2026-07-24T06:18:35.549Z" },
+    { url = "https://files.pythonhosted.org/packages/f4/1f/2429deae618fa1274eb4184fa96c9be37758d6f4f3b8595ad186b57312d3/numba-0.67.0rc1-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:877b2622a41d5bc7ac61aef6d98b933bb57908c335142acbfb7f35a71395e9a1", size = 3892040, upload-time = "2026-07-24T06:18:37.87Z" },
+    { url = "https://files.pythonhosted.org/packages/52/c7/6c818f49d3b22a611b8e38659a1006d5bd55d23abe9587baa584e6e02324/numba-0.67.0rc1-cp313-cp313-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:5a4931047ad5dfa81dd7e77702870ab14676298a9626f16578d9876025004312", size = 3591880, upload-time = "2026-07-24T06:18:39.842Z" },
+    { url = "https://files.pythonhosted.org/packages/4c/bc/b3846d578ba9d57fc6a87329ccc6f28f32f9369169b116cc9793c63327dc/numba-0.67.0rc1-cp313-cp313-win_amd64.whl", hash = "sha256:8e6a005b18a2234e13ecf1e351ef6fc387e2487e144db9a8088dddbde40652e8", size = 2815546, upload-time = "2026-07-24T06:18:41.714Z" },
+    { url = "https://files.pythonhosted.org/packages/3b/07/a6db7410eb79468d51900e87e707d257d6a611ef1d0496b9d2e0d1bbe204/numba-0.67.0rc1-cp314-cp314-macosx_12_0_arm64.whl", hash = "sha256:73d0b9fc18f5bd021ae19f3711090c5d8a65ad64db21de09fcfb52ce354e1652", size = 2745134, upload-time = "2026-07-24T06:18:43.562Z" },
+    { url = "https://files.pythonhosted.org/packages/13/b6/b8ed2915b1fa223bdfb483f54b932dcc389c4a5aa2c7b0c971bb55c65880/numba-0.67.0rc1-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:f037dced78c45ed78bd07b73898a8a0204fd441667079494c00717ea78f0ecbe", size = 3861088, upload-time = "2026-07-24T06:18:45.503Z" },
+    { url = "https://files.pythonhosted.org/packages/a7/8b/5f7906d3ddcd4e6dedabd7da65eef925224509df97dfd90a6ef4c4d80df8/numba-0.67.0rc1-cp314-cp314-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:465bf16956d8db64d939736e0a18cf00ed41c1ad7e3f543264b9debfb92d98d7", size = 3561850, upload-time = "2026-07-24T06:18:47.666Z" },
+    { url = "https://files.pythonhosted.org/packages/7e/a9/ab84951ec4cf03061fdbb4b4d851e9fb11659c2d816359d8d2bbecaea550/numba-0.67.0rc1-cp314-cp314-win_amd64.whl", hash = "sha256:a74e00b4d1575d4f516f3cce081aad6ebe77b4ff1e8bbc67346b23f43fb30c4e", size = 2817468, upload-time = "2026-07-24T06:18:49.833Z" },
+    { url = "https://files.pythonhosted.org/packages/f4/95/52a760805fb7d26a6ebcd9fac1c96740a85170c71a76086a694237d76a17/numba-0.67.0rc1-cp314-cp314-win_arm64.whl", hash = "sha256:209ba7517407ec58493c1db4aa0cddfe70b69c4164fc399f9f4bffd466e48df1", size = 2788929, upload-time = "2026-07-24T06:18:51.671Z" },
+    { url = "https://files.pythonhosted.org/packages/1d/64/f46bb3ac2bfeff33990825c9061bc6f53d74d90e4c49542230a821abdd64/numba-0.67.0rc1-cp314-cp314t-macosx_12_0_arm64.whl", hash = "sha256:5b97a1a5b514d47196d8cf3301438d1434563f095eea222e7c4c374239fa536f", size = 2748195, upload-time = "2026-07-24T06:18:53.508Z" },
+    { url = "https://files.pythonhosted.org/packages/54/d3/0bdb2beff11cfb8700999e459410b40b937cd563f136be3199308d105f8b/numba-0.67.0rc1-cp314-cp314t-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:5199bc217c672e854a08b7c9c04540c34fd49373b761038ed63ec81d2a1243f4", size = 3897022, upload-time = "2026-07-24T06:18:55.631Z" },
+    { url = "https://files.pythonhosted.org/packages/31/f7/d94f92258e4d4ce8f7fe8541bd82d822cbd2f191f12c626687dad5a36139/numba-0.67.0rc1-cp314-cp314t-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:8b54f32e5a9c8c0e2471a71a2297118e86fe65a12b1da0ad5515b5c445bf0fd8", size = 3614688, upload-time = "2026-07-24T06:18:57.767Z" },
+    { url = "https://files.pythonhosted.org/packages/a5/c3/a432fedfe8327268f85ad05825d4ad7a6c4e0e21d1659a26e31db5e7c4ff/numba-0.67.0rc1-cp314-cp314t-win_amd64.whl", hash = "sha256:2a713cc30aaba562209a3480de0a3c6e64718418dafb7a7087919bf5bb818bb1", size = 2822980, upload-time = "2026-07-24T06:18:59.709Z" },
 ]
 
 [[package]]
@@ -2739,6 +2789,22 @@ crypto = [
 ]
 
 [[package]]
+name = "pynndescent"
+version = "0.5.13"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "joblib" },
+    { name = "llvmlite" },
+    { name = "numba" },
+    { name = "scikit-learn" },
+    { name = "scipy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/7e/58/560a4db5eb3794d922fe55804b10326534ded3d971e1933c1eef91193f5e/pynndescent-0.5.13.tar.gz", hash = "sha256:d74254c0ee0a1eeec84597d5fe89fedcf778593eeabe32c2f97412934a9800fb", size = 2975955, upload-time = "2024-06-17T15:48:32.914Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d2/53/d23a97e0a2c690d40b165d1062e2c4ccc796be458a1ce59f6ba030434663/pynndescent-0.5.13-py3-none-any.whl", hash = "sha256:69aabb8f394bc631b6ac475a1c7f3994c54adf3f51cd63b2730fefba5771b949", size = 56850, upload-time = "2024-06-17T15:48:31.184Z" },
+]
+
+[[package]]
 name = "pyparsing"
 version = "3.3.2"
 source = { registry = "https://pypi.org/simple" }
@@ -3505,6 +3571,23 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/87/7c/f5a400cc99a5365d153609ebf803084f78b4638b0f7925aa31d9abb62b8e/ucimlrepo-0.0.7.tar.gz", hash = "sha256:4cff3f9e814367dd60956da999ace473197237b9fce4c07e9a689e77b4ffb59a", size = 9369, upload-time = "2024-05-21T06:06:41.465Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/3b/07/1252560194df2b4fad1cb3c46081b948331c63eb1bb0b97620d508d12a53/ucimlrepo-0.0.7-py3-none-any.whl", hash = "sha256:0a5ce7e21d7ec850a0da4427c47f9dd96fcc6532f1c7e95dcec63eeb40f08026", size = 8041, upload-time = "2024-05-21T06:06:39.826Z" },
+]
+
+[[package]]
+name = "umap-learn"
+version = "0.5.12"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numba" },
+    { name = "numpy" },
+    { name = "pynndescent" },
+    { name = "scikit-learn" },
+    { name = "scipy" },
+    { name = "tqdm" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/02/ee/af4171241117f85c74b5ca6448ea1033cc28d599c13651d67289bacd4083/umap_learn-0.5.12.tar.gz", hash = "sha256:6aff02ecac5f2aad9f3c65ee518d7ae93e1a985ae38721fdcffceee4232c33c7", size = 96672, upload-time = "2026-04-08T20:03:54.012Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/1b/98/f63318ccbe75c810011fe9233884c5d348d94d90005de1b79e5f93bef9c0/umap_learn-0.5.12-py3-none-any.whl", hash = "sha256:f2a85d2a2adcb52b541bed9b27a23ca169b56bb1b23283abeebfb8dfb8a42fe5", size = 91849, upload-time = "2026-04-08T20:03:52.561Z" },
 ]
 
 [[package]]
