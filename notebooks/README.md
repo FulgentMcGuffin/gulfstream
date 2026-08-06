@@ -12,8 +12,8 @@ Walkthroughs using the public `gulfstream` API.
 
 Each notebook:
 
-- **Parts A–C** — PCA / kPCA / DMD with Graph 1 (`run_single_segmentation`) + Graph 2 (`refine_regimes`)
-- **Parts D–J** — Search, tests, ESS window, classical detectors, TFT, curve/ICA dimred
+- **Parts A–E** — PCA / kPCA / DMD / t-SNE / UMAP with Graph 1 (`run_single_segmentation`) + Graph 2 (`refine_regimes`)
+- **Parts F–L** — Search, tests, ESS window, classical detectors, TFT, curve/ICA dimred
 - **Part K** — Product: uncertainty bands + CI ribbon overlays, Excel export (`export.excel`), NDJSON event stream (`events`), streaming Graph 1, panel joint breakpoints
 - **Part L** — Graph 2 retrain scores (`retrain.score_method`): compare pick tables, then run Graph 2 with `mse_on_diff` / `factor_residual` / `energy_split` / `mmd_split`
 - **Comparison** — covering, **adjusted Rand index**, and breakpoint F1 (notebooks 03/04 score against **ground-truth** outer breakpoints)
